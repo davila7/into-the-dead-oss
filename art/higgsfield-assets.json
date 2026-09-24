@@ -1,0 +1,56 @@
+{
+  "note": "Assets generated with Higgsfield. Images: gpt_image_2_5 (2:3, plain grey background). Models: image_to_3d (Meshy), textured; zombies rigged with an in-place walk clip. Download and optimise with `npm run assets:fetch`.",
+  "models": [
+    {
+      "name": "zombie-farmer",
+      "out": "public/assets/models/zombie-farmer.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_013953_9fbe51bb-8b64-4b1a-92ad-f2a96b167d46.glb",
+      "image_job": "c0a8a18f-68b8-4262-b6ca-ae0d4f42d575",
+      "model_job": "9fbe51bb-8b64-4b1a-92ad-f2a96b167d46",
+      "animation": "Injured_Walk_inplace (637)",
+      "prompt": "Undead farmer from rural Kansas, faded ragged denim overalls over a dirty red plaid flannel shirt, muddy work boots, A-pose"
+    },
+    {
+      "name": "zombie-farmwife",
+      "out": "public/assets/models/zombie-farmwife.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_013958_d0ecd696-307f-43fd-8bb3-aaf68a80e45a.glb",
+      "image_job": "0350f62a-dda0-4c1b-a39e-dc3e6e28294f",
+      "model_job": "d0ecd696-307f-43fd-8bb3-aaf68a80e45a",
+      "animation": "Unsteady_Walk_inplace (678)",
+      "prompt": "Undead farm woman, long faded floral cotton dress, barefoot, long tangled dark hair, A-pose"
+    },
+    {
+      "name": "zombie-trucker",
+      "out": "public/assets/models/zombie-trucker.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_014001_82b2f39c-0e52-40d1-bec5-021621687b77.glb",
+      "image_job": "5dcd115c-1194-4d5d-a0e6-b9be887e3608",
+      "model_job": "82b2f39c-0e52-40d1-bec5-021621687b77",
+      "animation": "Slow_Orc_Walk_inplace (669)",
+      "prompt": "Undead heavy-set trucker, grimy white t-shirt, open brown canvas work jacket, ragged jeans, cowboy boots, A-pose"
+    },
+    {
+      "name": "tree-oak",
+      "out": "public/assets/models/tree-oak.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_013617_7903fc55-dc63-42a6-b927-a2cb0cb2ebf1.glb",
+      "image_job": "a6d8526d-e947-4c21-b963-24291f3c5b28",
+      "model_job": "7903fc55-dc63-42a6-b927-a2cb0cb2ebf1",
+      "prompt": "Single dead leafless oak tree, gnarled thick trunk and twisted bare branches"
+    },
+    {
+      "name": "tree-cottonwood",
+      "out": "public/assets/models/tree-cottonwood.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_013620_ed2f7f1d-4e75-43df-9690-be92f0a0caf1.glb",
+      "image_job": "7339f521-e9f1-458c-9c9d-428d529442da",
+      "model_job": "ed2f7f1d-4e75-43df-9690-be92f0a0caf1",
+      "prompt": "Single tall dead cottonwood tree, straight trunk, sparse broken bare branches"
+    },
+    {
+      "name": "scarecrow",
+      "out": "public/assets/models/scarecrow.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_014006_c99c28b1-59d9-4ee4-954f-0b6f42e36637.glb",
+      "image_job": "270739e0-a61a-457a-b5d8-831329cda113",
+      "model_job": "c99c28b1-59d9-4ee4-954f-0b6f42e36637",
+      "prompt": "Creepy old scarecrow, burlap sack head with stitched face, tattered plaid shirt, arms on a wooden cross post"
+    }
+  ]
+}

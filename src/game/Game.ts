@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { LoadedTextures } from '../assets/manifest';
+import type { LoadedAssets } from '../assets/manifest';
+import { Atmosphere } from './Atmosphere';
 import { CONFIG } from './config';
 import { Effects } from './Effects';
 import { Hud, type RunStats } from './Hud';
@@ -8,12 +9,22 @@ import type { HitPart } from './logic';
 import { spawnInterval } from './logic';
 import { Player } from './Player';
 import { Sfx } from './Sfx';
+import { WheatField } from './WheatField';
 import { World } from './World';
-import { initZombieKit, Zombie } from './Zombie';
+import { Zombie } from './Zombie';
 
 type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
 const MAX_DT = 1 / 20;
+
+/** `?quality=low|high` scales wheat, mist and chaff counts. */
+function qualityDensity(): number {
+  const q = new URLSearchParams(location.search).get('quality');
+  if (q === 'low') return 0.45;
+  if (q === 'high') return 1.6;
+  // Phones and tablets get a lighter field by default.
+  return window.matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
+}
 
 export class Game {
   state: GameState = 'menu';
@@ -23,6 +34,10 @@ export class Game {
   private readonly scene = new THREE.Scene();
   private readonly player: Player;
   private readonly world: World;
+  private readonly wheat: WheatField;
+  private readonly atmosphere: Atmosphere;
+  private readonly assets: LoadedAssets;
+  private elapsed = 0;
   private readonly effects: Effects;
   private readonly input: Input;
   private readonly hud = new Hud();
@@ -37,13 +52,16 @@ export class Game {
   private readonly tmpB = new THREE.Vector3();
   private readonly aimNdc = new THREE.Vector2();
 
-  constructor(canvas: HTMLCanvasElement, textures: LoadedTextures) {
+  constructor(canvas: HTMLCanvasElement, assets: LoadedAssets) {
+    this.assets = assets;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
 
-    initZombieKit(textures.zombieSkin);
-    this.world = new World(this.scene, textures);
+    const density = qualityDensity();
+    this.atmosphere = new Atmosphere(this.scene, density);
+    this.world = new World(this.scene, assets);
+    this.wheat = new WheatField(this.scene, density);
     this.player = new Player(window.innerWidth / window.innerHeight);
     this.scene.add(this.player.camera);
     this.effects = new Effects(this.scene);
@@ -77,6 +95,8 @@ export class Game {
     this.zombies.length = 0;
     this.player.reset();
     this.world.reset();
+    this.wheat.reset();
+    this.atmosphere.reset(this.player.position);
     this.effects.reset();
     this.stats.distance = this.stats.kills = this.stats.headshots = 0;
     this.spawnTimer = 0;
@@ -107,7 +127,9 @@ export class Game {
     if (this.zombies.filter((z) => z.alive).length >= cfg.maxAlive) return;
     const dist = ahead ?? cfg.spawnAheadMin + Math.random() * (cfg.spawnAheadMax - cfg.spawnAheadMin);
     const x = (Math.random() * 2 - 1) * cfg.spawnHalfWidth;
-    const zombie = new Zombie(x, this.player.position.z - dist);
+    const models = this.assets.zombies;
+    const model = models.length > 0 ? models[Math.floor(Math.random() * models.length)] : undefined;
+    const zombie = new Zombie(x, this.player.position.z - dist, model);
     this.zombies.push(zombie);
     this.scene.add(zombie.root);
   }
@@ -124,6 +146,10 @@ export class Game {
       this.setPaused(false);
     }
 
+    // Wind, mist and sky keep moving on the menu and pause screens too.
+    this.elapsed += dt;
+    this.wheat.update(this.elapsed, this.player.position);
+    this.atmosphere.update(dt, this.elapsed, this.player.position);
     this.hud.moveCrosshair(this.input.aim.x, this.input.aim.y);
     this.renderer.render(this.scene, this.player.camera);
   }
@@ -132,7 +158,7 @@ export class Game {
     const { player, input } = this;
     player.update(dt, input.steer);
     this.stats.distance = player.distance;
-    this.world.update(player.position.z);
+    this.world.update(player.position);
 
     this.aimNdc.set(input.aim.x, input.aim.y);
     player.camera.updateMatrixWorld();
