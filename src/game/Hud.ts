@@ -41,6 +41,9 @@ export class Hud {
   private readonly offerBar = $('offer-timer-bar');
   readonly offerTake = $('offer-take');
   readonly offerKeep = $('offer-keep');
+  private readonly level = $('level');
+  private readonly levelNumber = $('level-number');
+  private readonly levelName = $('level-name');
   private pips: HTMLElement[] = [];
   private counter?: HTMLElement;
   private magazine = 0;
@@ -78,6 +81,16 @@ export class Hud {
     this.offerBar.style.width = `${Math.round(left * 100)}%`;
   }
 
+  /** Flashes the level banner ("LEVEL 3 · The crucified"); it fades out by itself. */
+  showLevel(n: number, name: string): void {
+    this.levelNumber.textContent = `Level ${n}`;
+    this.levelName.textContent = name;
+    this.level.hidden = false;
+    this.level.classList.remove('show');
+    void this.level.offsetWidth; // restart CSS animation
+    this.level.classList.add('show');
+  }
+
   hideOffer(): void {
     this.offer.hidden = true;
   }
@@ -109,6 +122,7 @@ export class Hud {
 
   gameOver(stats: RunStats): void {
     this.hideOffer();
+    this.level.hidden = true;
     this.overStats.innerHTML = `
       <div><b>${Math.floor(stats.distance)} m</b><span>distance</span></div>
       <div><b>${stats.kills}</b><span>kills</span></div>
