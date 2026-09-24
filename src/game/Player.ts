@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { LoadedModel } from '../assets/manifest';
 import { CONFIG } from './config';
 import { clamp, lerp, playerSpeed, vaultProfile } from './logic';
+import { MuzzleFlash } from './MuzzleFlash';
 import { WEAPONS, type WeaponDef, type WeaponId } from './weapons';
 
 /** Where each viewmodel sits in front of the camera (x right, y up, z forward = -). */
@@ -82,19 +83,14 @@ export class Player {
   private readonly gun = new THREE.Group();
   private readonly holder = new THREE.Group();
   private readonly muzzle = new THREE.Object3D();
-  private readonly flash: THREE.Mesh;
-  private readonly flashLight = new THREE.PointLight(0xffc680, 0, 12, 2);
+  private readonly flash = new MuzzleFlash();
   private readonly tmp = new THREE.Vector3();
   private readonly viewmodels = new Map<WeaponId, { group: THREE.Object3D; muzzle: THREE.Vector3 }>();
 
   constructor(aspect: number, private readonly models: Partial<Record<WeaponId, LoadedModel>>) {
     this.camera = new THREE.PerspectiveCamera(70, aspect, 0.05, 200);
 
-    this.flash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.12, 0.12),
-      new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false, fog: false }),
-    );
-    this.muzzle.add(this.flash, this.flashLight);
+    this.muzzle.add(this.flash);
     this.gun.add(this.holder, this.muzzle);
     this.camera.add(this.gun);
     this.reset();
@@ -152,6 +148,7 @@ export class Player {
     this.strafeVel = 0;
     this.recoil = 0;
     this.vaultLeft = 0;
+    this.flash.reset();
     this.equip(WEAPONS.pistol, false);
     this.syncCamera();
   }
@@ -193,11 +190,7 @@ export class Player {
       }
     }
 
-    const flashOn = this.recoil > 0.75;
-    (this.flash.material as THREE.MeshBasicMaterial).opacity = flashOn ? 1 : 0;
-    this.flash.rotation.z = Math.random() * Math.PI;
-    this.flash.scale.setScalar(0.7 + this.weapon.recoil * 0.4);
-    this.flashLight.intensity = flashOn ? 6 : 0;
+    this.flash.update(dt);
 
     this.syncCamera();
   }
@@ -241,6 +234,7 @@ export class Player {
     this.ammo -= 1;
     this.cooldown = this.weapon.fireCooldown;
     this.recoil = 1;
+    this.flash.fire(this.weapon.recoil);
   }
 
   /** Returns true if a reload actually started. */
