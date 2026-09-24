@@ -18,11 +18,28 @@ const CLIP_CURVE = (() => {
  * Synthesized sound effects (Web Audio, no files): weapons, footsteps, corn brushing
  * past, fence vaults and positional zombie groans.
  */
+interface Cricket {
+  freq: number;
+  pan: number;
+  /** Pulses per chirp and seconds between chirps. */
+  pulses: number;
+  period: number;
+  next: number;
+}
+
 export class Sfx {
   private ctx?: AudioContext;
   private out?: AudioNode;
   private noise?: AudioBuffer;
   private voices = 0;
+  private cricketBus?: GainNode;
+  private readonly cricketsInField: Cricket[] = Array.from({ length: 6 }, () => ({
+    freq: 4200 + Math.random() * 1400,
+    pan: Math.random() * 2 - 1,
+    pulses: 2 + Math.floor(Math.random() * 3),
+    period: 0.45 + Math.random() * 0.5,
+    next: 0,
+  }));
 
   /** Must be called from a user gesture (browser autoplay policy). */
   unlock(): void {
@@ -240,7 +257,98 @@ export class Sfx {
     this.burst(0.12, 2600, 0.08, 'highpass', { delay: 0.87 });
   }
 
+  // --- ambience --------------------------------------------------------------
+
+  /**
+   * Night crickets around the listener; call every frame. `level` (0..1) sets how loud they
+   * are, so they can hush when something gets close. Chirps are scheduled a little ahead.
+   */
+  crickets(level: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.out) return;
+    if (!this.cricketBus) {
+      this.cricketBus = ctx.createGain();
+      this.cricketBus.gain.value = 0;
+      this.cricketBus.connect(this.out);
+    }
+    const now = ctx.currentTime;
+    this.cricketBus.gain.setTargetAtTime(0.6 * level, now, 0.6);
+    for (const c of this.cricketsInField) {
+      // After a pause or a hidden tab, pick up from now instead of catching up.
+      if (c.next < now) c.next = now + Math.random() * c.period;
+      while (c.next < now + 0.25) {
+        this.chirp(ctx, c, c.next);
+        // Crickets aren't metronomes: a bit of drift, and now and then a rest.
+        c.next += c.period * (0.9 + Math.random() * 0.2) + (Math.random() < 0.08 ? 1 + Math.random() * 3 : 0);
+      }
+    }
+  }
+
+  /** One chirp: a few quick pulses of a high, slightly buzzy tone. */
+  private chirp(ctx: AudioContext, c: Cricket, t: number): void {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = c.freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    const pulse = 0.016;
+    const gapT = 0.012;
+    const vol = 0.07 + Math.random() * 0.05;
+    for (let i = 0; i < c.pulses; i++) {
+      const p = t + i * (pulse + gapT);
+      g.gain.setValueAtTime(0, p);
+      g.gain.linearRampToValueAtTime(vol, p + 0.004);
+      g.gain.linearRampToValueAtTime(0, p + pulse);
+    }
+    const pan = new StereoPannerNode(ctx, { pan: c.pan });
+    osc.connect(g).connect(pan).connect(this.cricketBus!);
+    osc.start(t);
+    osc.stop(t + c.pulses * (pulse + gapT) + 0.02);
+  }
+
   // --- zombies ---------------------------------------------------------------
+
+  /** The brute: the roar, an octave-ish lower and slower. */
+  bellow(pos: THREE.Vector3, kind: 'idle' | 'snarl' | 'death' = 'idle'): void {
+    if (kind === 'death') this.moan(pos, true);
+    else this.roar(pos, kind === 'snarl', 0.6);
+  }
+
+  /** A zombie dog: snarling barks, or a yelp when it dies. */
+  bark(pos: THREE.Vector3, kind: 'idle' | 'snarl' | 'death' = 'idle'): void {
+    const v = this.voice(pos);
+    if (!v) return;
+    const { ctx, dest } = v;
+    const t0 = ctx.currentTime;
+    const count = kind === 'death' ? 1 : kind === 'snarl' ? 3 : 1 + Math.floor(Math.random() * 2);
+    let last: OscillatorNode | undefined;
+    for (let i = 0; i < count; i++) {
+      const t = t0 + i * (0.16 + Math.random() * 0.06);
+      const dur = kind === 'death' ? 0.4 : 0.12;
+      const f = kind === 'death' ? 900 : 380 + Math.random() * 120;
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * (kind === 'death' ? 0.4 : 0.55), t + dur);
+      const drive = ctx.createWaveShaper();
+      drive.curve = CLIP_CURVE;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1100;
+      bp.Q.value = 1.2;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(drive).connect(bp).connect(env).connect(dest);
+      // Throaty rasp under each bark.
+      this.burst(dur, 900, 0.25, 'bandpass', { delay: t - t0, q: 1.5, dest });
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+      last = osc;
+    }
+    last!.onended = v.release;
+  }
 
   /**
    * A zombie at `pos` makes a noise. The voice is picked at random so a horde mixes the
@@ -283,13 +391,13 @@ export class Sfx {
    * Guttural roar: two detuned low saws and throat noise pushed through a soft clipper,
    * shaped by an open "aah". `lunge` is the short, loud version when one charges.
    */
-  private roar(pos: THREE.Vector3, lunge: boolean): void {
+  private roar(pos: THREE.Vector3, lunge: boolean, pitch = 1): void {
     const v = this.voice(pos);
     if (!v) return;
     const { ctx, dest } = v;
     const t = ctx.currentTime;
-    const dur = lunge ? 0.7 + Math.random() * 0.3 : 1.2 + Math.random() * 0.8;
-    const f0 = lunge ? 70 + Math.random() * 25 : 45 + Math.random() * 20;
+    const dur = (lunge ? 0.7 + Math.random() * 0.3 : 1.2 + Math.random() * 0.8) / Math.sqrt(pitch);
+    const f0 = (lunge ? 70 + Math.random() * 25 : 45 + Math.random() * 20) * pitch;
 
     const mix = ctx.createGain();
     const oscs: OscillatorNode[] = [];

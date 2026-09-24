@@ -30,6 +30,8 @@ export interface ZombieSlot extends ModelSlot {
   id: string;
   /** Ground speed (m/s) the walk clip was authored for; drives playback rate. */
   clipSpeed: number;
+  /** Width of the hit volume relative to a normal zombie (the brute is wider). */
+  girth?: number;
 }
 
 /** Remote URLs for generated models, keyed by name (see art/higgsfield-assets.json). */
@@ -39,9 +41,12 @@ function generatedSlot(name: string, height: number, yaw?: number): ModelSlot {
   return { url: `assets/models/${name}.glb`, remote: remoteByName.get(name), height, yaw };
 }
 
-function zombieSlot(name: string, height: number, clipSpeed: number): ZombieSlot {
-  return { ...generatedSlot(name, height), id: name, clipSpeed };
+function zombieSlot(name: string, height: number, clipSpeed: number, girth?: number): ZombieSlot {
+  return { ...generatedSlot(name, height), id: name, clipSpeed, girth };
 }
+
+/** Yaw that turns the generated quadrupeds (modelled side-on) to face +Z. */
+const QUAD_YAW = { mutant: 0, dog: 0 };
 
 export const ASSETS = {
   textures: {
@@ -77,6 +82,16 @@ export const ASSETS = {
   } as Partial<Record<WeaponId, ModelSlot>>,
   /** One section of broken fence, rails along X. */
   fence: generatedSlot('fence-broken', 1.35) as ModelSlot | undefined,
+  /** Later levels (see CONFIG.horrors). Quadrupeds: `height` is nose-to-tail length, facing +Z. */
+  horrors: {
+    brute: zombieSlot('zombie-brute', 2.35, 0.8, 1.7) as ZombieSlot | undefined,
+    mutant: generatedSlot('zombie-mutant', 2.4, QUAD_YAW.mutant) as ModelSlot | undefined,
+    dog: generatedSlot('zombie-dog', 1.15, QUAD_YAW.dog) as ModelSlot | undefined,
+    /** Hooded body, hung by the neck from a rope added in code. */
+    hanged: generatedSlot('zombie-hanged', 1.75) as ModelSlot | undefined,
+    /** Arms spread in a T; the cross is built in code. */
+    crucified: generatedSlot('zombie-crucified', 1.75) as ModelSlot | undefined,
+  },
 };
 
 export type TextureKey = keyof typeof ASSETS.textures;
@@ -100,6 +115,13 @@ export interface LoadedAssets {
   weapons: Partial<Record<WeaponId, LoadedModel>>;
   pickups: Partial<Record<WeaponId, LoadedModel>>;
   fence?: LoadedModel;
+  horrors: {
+    brute?: LoadedZombie;
+    mutant?: LoadedModel;
+    dog?: LoadedModel;
+    hanged?: LoadedModel;
+    crucified?: LoadedModel;
+  };
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -175,19 +197,30 @@ async function loadModelMap(
   return out;
 }
 
+async function loadZombie(slot: ZombieSlot): Promise<LoadedZombie | undefined> {
+  const model = await loadModel(slot);
+  return model && model.animations.length > 0 ? { ...model, slot } : undefined;
+}
+
+const optional = (slot: ModelSlot | undefined, fit: 'height' | 'longest' = 'height') =>
+  slot ? loadModel(slot, fit) : Promise.resolve(undefined);
+
 export async function loadAssets(): Promise<LoadedAssets> {
   const textureEntries = Object.entries(ASSETS.textures) as [TextureKey, TextureSlot][];
-  const [textureList, zombies, trees, scarecrow, weapons, pickups, fence] = await Promise.all([
+  const h = ASSETS.horrors;
+  const [textureList, zombies, trees, scarecrow, weapons, pickups, fence, brute, mutant, dog, hanged, crucified] = await Promise.all([
     Promise.all(textureEntries.map(async ([key, slot]) => [key, await loadTexture(slot)] as const)),
-    Promise.all(ASSETS.zombies.map(async (slot) => {
-      const model = await loadModel(slot);
-      return model && model.animations.length > 0 ? { ...model, slot } : undefined;
-    })),
+    Promise.all(ASSETS.zombies.map(loadZombie)),
     Promise.all(ASSETS.trees.map((slot) => loadModel(slot))),
     ASSETS.scarecrow ? loadModel(ASSETS.scarecrow) : Promise.resolve(undefined),
     loadModelMap(ASSETS.weapons),
     loadModelMap(ASSETS.pickups),
-    ASSETS.fence ? loadModel(ASSETS.fence) : Promise.resolve(undefined),
+    optional(ASSETS.fence),
+    h.brute ? loadZombie(h.brute) : Promise.resolve(undefined),
+    optional(h.mutant, 'longest'),
+    optional(h.dog, 'longest'),
+    optional(h.hanged),
+    optional(h.crucified),
   ]);
   const textures: LoadedTextures = {};
   for (const [key, tex] of textureList) if (tex) textures[key] = tex;
@@ -199,5 +232,6 @@ export async function loadAssets(): Promise<LoadedAssets> {
     weapons,
     pickups,
     fence,
+    horrors: { brute, mutant, dog, hanged, crucified },
   };
 }
