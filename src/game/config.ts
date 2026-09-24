@@ -48,14 +48,27 @@ export const CONFIG = {
     chance: 0.5,
     /** Headshots closer than this are too short a flight to follow. */
     minDistance: 7,
-    /** Flight time grows with distance, within these bounds. */
-    flightPerMeter: 0.06,
-    flightMin: 1.1,
-    flightMax: 1.8,
-    /** Time runs this slow while the bullet flies, then at `impactTimeScale` as the zombie goes down. */
-    flightTimeScale: 0.01,
-    impactTime: 1.4,
+    /** Chase time grows with distance, within these bounds. */
+    flightPerMeter: 0.12,
+    flightMin: 2.2,
+    flightMax: 3.6,
+    /**
+     * The last `entryLead` meters are shown side-on over `entryTime`: the bullet creeps in and
+     * reaches the head at `entryHit` of that time, then sinks `entryDepth` into it.
+     */
+    entryLead: 0.8,
+    entryTime: 2.2,
+    entryHit: 0.65,
+    entryDepth: 0.12,
+    /** World time scale in flight, while the bullet goes in, and as the zombie goes down. */
+    flightTimeScale: 0.005,
+    entryTimeScale: 0.03,
+    impactTime: 1.6,
     impactTimeScale: 0.12,
+    /** Rings of disturbed air shed behind the bullet: one every `ringInterval` real seconds. */
+    ringInterval: 0.045,
+    ringLife: 0.8,
+    ringSize: 0.11,
     /** Turns the camera makes round the bullet on its way in. */
     spins: 1.25,
     /** Field of view (deg) at the muzzle, at the head, and when the replay ends. */
