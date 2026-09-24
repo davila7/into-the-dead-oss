@@ -70,6 +70,24 @@ export const CONFIG = {
     decisionTime: 6,
     decisionTimeScale: 0.15,
   },
+  /** Roguelite perks: every `every` meters (from `first`) the run pauses in slow motion to pick 1 of `choices`. */
+  perks: {
+    first: 200,
+    every: 250,
+    choices: 3,
+    /** Real seconds to pick before the choice lapses; the game runs slowed meanwhile. */
+    decisionTime: 8,
+    decisionTimeScale: 0.15,
+    /** Per stack. Factors multiply, so two Quick Hands reload in 0.75² of the time. */
+    reloadFactor: 0.75,
+    pierceBonus: 1,
+    magazineFactor: 1.5,
+    fireCooldownFactor: 0.8,
+    strafeFactor: 1.25,
+    /** Second Wind: everything this close drops when a grab is shoved off, then a moment of grace. */
+    shoveRadius: 4.5,
+    graceTime: 1.2,
+  },
   zombies: {
     spawnAheadMin: 45,
     spawnAheadMax: 75,

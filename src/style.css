@@ -118,6 +118,44 @@ body.playing #game { cursor: none; }
 #offer-take kbd { border-color: #0e101455; background: #0e101414; }
 .offer-timer { height: 3px; margin-top: 12px; background: #ffffff22; }
 #offer-timer-bar { height: 100%; width: 100%; background: #d8e27a; }
+/* Perk choice: 1 of 3 cards, same slowed-time panel as the weapon offer */
+#perks {
+  position: fixed;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
+  padding: 16px 18px 12px;
+  text-align: center;
+  background: #0e1014e6;
+  border: 1px solid #d8e27a66;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px #000a;
+  animation: offer-in 0.2s ease-out;
+}
+#perks[hidden] { display: none; }
+#perk-cards { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+#perk-cards button {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  font: inherit;
+  color: #e8e4da;
+  background: #ffffff14;
+  border: 1px solid #ffffff44;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#perk-cards button:hover { border-color: #d8e27a; }
+#perk-cards b { font-size: 15px; color: #d8e27a; }
+#perk-cards .blurb { font-size: 13px; opacity: 0.8; }
+#perk-cards .stack { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.6; }
+#perk-cards kbd { margin-top: auto; }
+#perk-timer-bar { height: 100%; width: 100%; background: #d8e27a; }
+#hud-perks { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.75; }
 #hud-reload { font-size: 12px; letter-spacing: 0.2em; text-align: right; }
 #hud-reload .bar { width: 120px; height: 4px; margin-top: 4px; background: #ffffff30; }
 #hud-reload-bar { height: 100%; width: 0; background: #e8c26a; }

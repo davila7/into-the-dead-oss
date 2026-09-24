@@ -16,12 +16,15 @@ import {
   maxAlive,
   mulberry32,
   packFor,
+  perkMilestone,
   planCourse,
   planHorrors,
+  rollPerks,
   runnerChance,
   spawnInterval,
   zombieSpeed,
 } from './logic';
+import type { PerkId, PerkStacks } from './perks';
 import { Player } from './Player';
 import { Sfx } from './Sfx';
 import { PICKUP_WEAPONS, WEAPONS, type WeaponId } from './weapons';
@@ -37,6 +40,12 @@ const COURSE_LENGTH = 30000;
 interface Offer {
   weapon: WeaponId;
   /** Real seconds left to decide. */
+  left: number;
+}
+
+interface PerkOffer {
+  choices: PerkId[];
+  /** Real seconds left to pick. */
   left: number;
 }
 
@@ -68,6 +77,13 @@ export class Game {
   private level = -1;
   private offer: Offer | null = null;
   private readonly preview: WeaponPreview;
+  /** Perks taken this run; Second Wind counts charges left. */
+  private perks: PerkStacks = {};
+  private perkOffer: PerkOffer | null = null;
+  /** Index of the next perk milestone. */
+  private perkIndex = 0;
+  /** Seconds a Second Wind leaves the runner ungrabbable. */
+  private grace = 0;
   private cover = 0;
   private rustleTimer = 0;
   private readonly atmosphere: Atmosphere;
@@ -113,6 +129,7 @@ export class Game {
     this.hud.retryButton.addEventListener('click', () => this.begin());
     this.hud.offerTake.addEventListener('click', () => this.input.choose('take'));
     this.hud.offerKeep.addEventListener('click', () => this.input.choose('keep'));
+    this.hud.onPerkPicked = (i) => this.input.pick(i);
     window.addEventListener('resize', () => this.resize());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'playing') this.setPaused(true);
@@ -138,6 +155,12 @@ export class Game {
     this.hud.setWeapon(this.player.weapon);
     this.offer = null;
     this.hud.hideOffer();
+    this.perks = {};
+    this.perkOffer = null;
+    this.perkIndex = 0;
+    this.grace = 0;
+    this.hud.hidePerks();
+    this.hud.setPerkList(this.perks);
     // A fresh layout of fences, corn and pickups every run.
     const rand = mulberry32((Math.random() * 2 ** 32) >>> 0);
     const plan = planCourse(rand, COURSE_LENGTH);
@@ -175,6 +198,10 @@ export class Game {
       if (paused) this.hud.hideOffer();
       else this.hud.showOffer(WEAPONS[this.offer.weapon], this.player.weapon);
     }
+    if (this.perkOffer) {
+      if (paused) this.hud.hidePerks();
+      else this.hud.showPerks(this.perkOffer.choices, this.perks);
+    }
     this.input.clearQueued();
     this.lastTime = performance.now();
   }
@@ -203,6 +230,52 @@ export class Game {
     this.offer = null;
     this.hud.hideOffer();
     this.input.clearQueued();
+  }
+
+  /** Reached a perk milestone: offer 1 of 3, or skip it quietly once everything is maxed out. */
+  private openPerks(): void {
+    this.perkIndex += 1;
+    const choices = rollPerks(Math.random, this.perks);
+    if (choices.length === 0) return;
+    this.perkOffer = { choices, left: CONFIG.perks.decisionTime };
+    this.input.clearQueued();
+    this.hud.showPerks(choices, this.perks);
+    this.sfx.offer();
+  }
+
+  private closePerks(pick: PerkId | null): void {
+    if (pick) {
+      this.perks[pick] = (this.perks[pick] ?? 0) + 1;
+      this.player.setPerks(this.perks);
+      this.hud.setWeapon(this.player.weapon);
+      this.hud.setPerkList(this.perks);
+      this.sfx.swap();
+    }
+    this.perkOffer = null;
+    this.hud.hidePerks();
+    this.input.clearQueued();
+  }
+
+  /** Spends a Second Wind charge: everything within reach drops and the runner gets a moment of grace. */
+  private secondWind(): void {
+    const { shoveRadius, graceTime } = CONFIG.perks;
+    this.perks.secondWind = (this.perks.secondWind ?? 1) - 1;
+    this.hud.setPerkList(this.perks);
+    this.grace = graceTime;
+    const p = this.player.position;
+    const targets: Shootable[] = [...this.zombies.filter((z) => z.alive), ...this.horrors.targets];
+    for (const t of targets) {
+      const away = this.tmpA.set(t.position.x - p.x, 0, t.position.z - p.z);
+      if (away.length() > shoveRadius) continue;
+      const point = t.position.clone().setY(1.2);
+      if (!t.hit('body', point, Infinity).killed) continue;
+      this.stats.kills += 1;
+      this.effects.blood(point, away.normalize(), 26);
+      if (t instanceof Zombie) t.shove(away, 2);
+    }
+    this.sfx.swap();
+    this.sfx.hit();
+    this.hud.flashDamage();
   }
 
   private spawnZombie(ahead?: number): void {
@@ -275,8 +348,16 @@ export class Game {
   private update(realDt: number): void {
     const { player, input } = this;
     let dt = realDt;
-    // Choosing a weapon: the world crawls in slow motion until the player decides.
-    if (this.offer) {
+    // Choosing a perk or a weapon: the world crawls in slow motion until the player decides.
+    if (this.perkOffer) {
+      this.perkOffer.left -= realDt;
+      this.hud.updatePerks(Math.max(0, this.perkOffer.left / CONFIG.perks.decisionTime));
+      const pick = input.consumePick();
+      const chosen = pick !== null ? this.perkOffer.choices[pick] : undefined;
+      if (chosen) this.closePerks(chosen);
+      else if (this.perkOffer.left <= 0) this.closePerks(null);
+      else dt *= CONFIG.perks.decisionTimeScale;
+    } else if (this.offer) {
       this.offer.left -= realDt;
       this.hud.updateOffer(Math.max(0, this.offer.left / CONFIG.pickups.decisionTime));
       const choice = input.consumeChoice();
@@ -294,9 +375,12 @@ export class Game {
     if (event === 'vault' && !player.vaulting) {
       player.vault();
       this.sfx.vault();
-    } else if (event === 'pickup' && !this.offer && this.course.pickup) {
+    } else if (event === 'pickup' && !this.offer && !this.perkOffer && this.course.pickup) {
       this.openOffer(this.course.pickup.weapon);
       this.course.consumePickup();
+    } else if (!this.offer && !this.perkOffer && player.distance >= perkMilestone(this.perkIndex)) {
+      // A perk that comes due during a weapon offer waits for it to close.
+      this.openPerks();
     }
 
     const level = levelAt(player.distance);
@@ -316,7 +400,7 @@ export class Game {
     this.raycaster.setFromCamera(this.aimNdc, player.camera);
     player.aimAt(this.raycaster.ray.at(30, this.tmpA));
 
-    if (this.offer) {
+    if (this.offer || this.perkOffer) {
       input.consumeFire();
       input.consumeReload();
     } else {
@@ -356,7 +440,11 @@ export class Game {
     const reloading = player.reloadLeft > 0 ? 1 - player.reloadLeft / player.weapon.reloadTime : null;
     this.hud.update(this.stats, player.ammo, reloading);
 
-    if (grabbed || horror.grabbed) this.gameOver();
+    this.grace = Math.max(0, this.grace - dt);
+    if ((grabbed || horror.grabbed) && this.grace <= 0) {
+      if ((this.perks.secondWind ?? 0) > 0) this.secondWind();
+      else this.gameOver();
+    }
   }
 
   /** Footsteps, corn brushing past and zombie groans. */
@@ -475,6 +563,7 @@ export class Game {
   private gameOver(): void {
     this.state = 'over';
     this.offer = null;
+    this.perkOffer = null;
     this.player.gunVisible = false;
     this.hud.gameOver(this.stats);
   }

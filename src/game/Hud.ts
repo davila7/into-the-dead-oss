@@ -1,3 +1,4 @@
+import { PERKS, type PerkId, type PerkStacks } from './perks';
 import type { WeaponDef } from './weapons';
 
 function $(id: string): HTMLElement {
@@ -42,6 +43,12 @@ export class Hud {
   readonly offerTake = $('offer-take');
   readonly offerKeep = $('offer-keep');
   readonly offerPreview = $('offer-preview') as HTMLCanvasElement;
+  private readonly perks = $('perks');
+  private readonly perkCards = $('perk-cards');
+  private readonly perkBar = $('perk-timer-bar');
+  private readonly perkList = $('hud-perks');
+  /** Called with the card index when a perk card is clicked. */
+  onPerkPicked: (index: number) => void = () => {};
   private readonly level = $('level');
   private readonly levelNumber = $('level-number');
   private readonly levelName = $('level-name');
@@ -81,6 +88,49 @@ export class Hud {
   /** `left` is 1 when the offer appears and 0 when it lapses. */
   updateOffer(left: number): void {
     this.offerBar.style.width = `${Math.round(left * 100)}%`;
+  }
+
+  /** Shows the perk cards, numbered 1..n for the keyboard. */
+  showPerks(choices: readonly PerkId[], stacks: PerkStacks): void {
+    this.perkCards.replaceChildren(
+      ...choices.map((id, i) => {
+        const perk = PERKS[id];
+        const have = stacks[id] ?? 0;
+        const card = document.createElement('button');
+        card.innerHTML = `<b></b><span class="blurb"></span><span class="stack"></span><kbd>${i + 1}</kbd>`;
+        card.querySelector('b')!.textContent = perk.name;
+        card.querySelector('.blurb')!.textContent = perk.blurb;
+        card.querySelector('.stack')!.textContent = have > 0 ? `${have + 1} / ${perk.maxStacks}` : perk.maxStacks > 1 ? `max ${perk.maxStacks}` : '';
+        card.addEventListener('click', () => this.onPerkPicked(i));
+        return card;
+      }),
+    );
+    this.perkBar.style.width = '100%';
+    this.perks.hidden = false;
+    this.crosshair.hidden = true;
+  }
+
+  /** `left` is 1 when the cards appear and 0 when the choice lapses. */
+  updatePerks(left: number): void {
+    this.perkBar.style.width = `${Math.round(left * 100)}%`;
+  }
+
+  hidePerks(): void {
+    this.perks.hidden = true;
+    this.crosshair.hidden = false;
+  }
+
+  /** Lists the perks taken this run under the distance ("Quick Hands ×2"). */
+  setPerkList(stacks: PerkStacks): void {
+    this.perkList.replaceChildren(
+      ...(Object.entries(stacks) as [PerkId, number][])
+        .filter(([, n]) => n > 0)
+        .map(([id, n]) => {
+          const row = document.createElement('span');
+          row.textContent = n > 1 ? `${PERKS[id].name} ×${n}` : PERKS[id].name;
+          return row;
+        }),
+    );
   }
 
   /** Flashes the level banner ("LEVEL 3 · The crucified"); it fades out by itself. */
@@ -125,6 +175,7 @@ export class Hud {
 
   gameOver(stats: RunStats): void {
     this.hideOffer();
+    this.hidePerks();
     this.level.hidden = true;
     this.overStats.innerHTML = `
       <div><b>${Math.floor(stats.distance)} m</b><span>distance</span></div>
@@ -132,6 +183,12 @@ export class Hud {
       <div><b>${stats.headshots}</b><span>headshots</span></div>`;
     this.damage.classList.add('on');
     this.show('over');
+  }
+
+  /** A short red flash at the edges (Second Wind shoving off a grab). */
+  flashDamage(): void {
+    this.damage.classList.add('on');
+    setTimeout(() => this.damage.classList.remove('on'), 350);
   }
 
   clearDamage(): void {

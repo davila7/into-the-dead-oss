@@ -7,6 +7,7 @@ export class Input {
   private reloadQueued = false;
   private pauseQueued = false;
   private choiceQueued: 'take' | 'keep' | null = null;
+  private pickQueued: number | null = null;
   private pointerHeld = false;
 
   constructor(private readonly canvas: HTMLElement) {
@@ -18,6 +19,8 @@ export class Input {
       if (e.code === 'KeyP' || e.code === 'Escape') this.pauseQueued = true;
       if (e.code === 'KeyE' || e.code === 'Enter') this.choiceQueued = 'take';
       if (e.code === 'KeyQ') this.choiceQueued = 'keep';
+      const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+      if (digit) this.pickQueued = Number(digit[1]) - 1;
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -77,6 +80,18 @@ export class Input {
     this.choiceQueued = choice;
   }
 
+  /** Queues a perk card (0-based) from the on-screen buttons. */
+  pick(index: number): void {
+    this.pickQueued = index;
+  }
+
+  /** 0-based perk card picked with 1-9 or a click, if any. */
+  consumePick(): number | null {
+    const v = this.pickQueued;
+    this.pickQueued = null;
+    return v;
+  }
+
   consumeChoice(): 'take' | 'keep' | null {
     const v = this.choiceQueued;
     this.choiceQueued = null;
@@ -104,5 +119,6 @@ export class Input {
   clearQueued(): void {
     this.fireQueued = this.reloadQueued = this.pauseQueued = false;
     this.choiceQueued = null;
+    this.pickQueued = null;
   }
 }
