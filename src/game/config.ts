@@ -35,6 +35,34 @@ export const CONFIG = {
     /** Real seconds after a kill cam starts before another can, so automatic fire doesn't crawl. */
     cooldown: 1.2,
   },
+  /**
+   * Bullet cam: now and then a headshot kill is replayed in ultra slow motion, the camera riding
+   * alongside the bullet, spinning round it and closing in until it strikes the head.
+   * Times are real seconds. `?bulletcam=always` plays it on every headshot (for tuning).
+   */
+  bulletCam: {
+    /** Earliest into a run, and the gap after one, before another can play. */
+    firstAfter: 12,
+    cooldown: 25,
+    /** Chance an eligible headshot kill gets the bullet cam. */
+    chance: 0.5,
+    /** Headshots closer than this are too short a flight to follow. */
+    minDistance: 7,
+    /** Flight time grows with distance, within these bounds. */
+    flightPerMeter: 0.06,
+    flightMin: 1.1,
+    flightMax: 1.8,
+    /** Time runs this slow while the bullet flies, then at `impactTimeScale` as the zombie goes down. */
+    flightTimeScale: 0.01,
+    impactTime: 1.4,
+    impactTimeScale: 0.12,
+    /** Turns the camera makes round the bullet on its way in. */
+    spins: 1.25,
+    /** Field of view (deg) at the muzzle, at the head, and when the replay ends. */
+    fovStart: 55,
+    fovImpact: 30,
+    fovEnd: 42,
+  },
   /** Leg shots blow a leg off: the zombie drops and drags itself on, slow and low. */
   crawl: {
     /** Share of the weapon's body damage a leg hit does; it never kills. */

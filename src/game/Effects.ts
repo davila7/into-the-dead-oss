@@ -219,6 +219,12 @@ export class Effects {
     (this.tracer.material as THREE.LineBasicMaterial).opacity = 0.35 * (this.tracerLife / TRACER_LIFE);
   }
 
+  /** Drops a lingering tracer at once (it would hang in the air through a slow-motion replay). */
+  clearTracer(): void {
+    this.tracerLife = 0;
+    (this.tracer.material as THREE.LineBasicMaterial).opacity = 0;
+  }
+
   reset(): void {
     for (const p of this.droplets) p.sprite.visible = false;
     for (const m of this.mists) m.sprite.visible = false;
