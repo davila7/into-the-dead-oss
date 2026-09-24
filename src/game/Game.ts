@@ -8,6 +8,7 @@ import { Effects } from './Effects';
 import { Horrors } from './Horrors';
 import { Hud, type RunStats } from './Hud';
 import { Input } from './Input';
+import { KillCam } from './KillCam';
 import type { HitPart } from './logic';
 import {
   cornCover,
@@ -77,6 +78,7 @@ export class Game {
   private readonly input: Input;
   private readonly hud = new Hud();
   private readonly sfx = new Sfx();
+  private readonly killCam = new KillCam();
   private readonly raycaster = new THREE.Raycaster();
   readonly zombies: Zombie[] = [];
   private spawnTimer = 0;
@@ -152,6 +154,8 @@ export class Game {
     this.atmosphere.reset(this.player.position);
     this.effects.reset();
     this.stats.distance = this.stats.kills = this.stats.headshots = 0;
+    this.killCam.reset();
+    this.player.setZoom(0);
     this.spawnTimer = 0;
     // A few zombies already shambling in the fog so the first seconds aren't empty.
     for (let i = 0; i < 5; i++) this.spawnZombie(32 + i * 8);
@@ -275,8 +279,11 @@ export class Game {
   private update(realDt: number): void {
     const { player, input } = this;
     let dt = realDt;
+    this.killCam.update(realDt);
     // Choosing a weapon: the world crawls in slow motion until the player decides.
     if (this.offer) {
+      // The offer's slow motion takes over from any kill cam.
+      this.killCam.cancel();
       this.offer.left -= realDt;
       this.hud.updateOffer(Math.max(0, this.offer.left / CONFIG.pickups.decisionTime));
       const choice = input.consumeChoice();
@@ -284,6 +291,8 @@ export class Game {
       else if (this.offer.left <= 0) this.closeOffer(false);
       else dt *= CONFIG.pickups.decisionTimeScale;
     }
+    if (!this.offer) dt *= this.killCam.timeScale;
+    player.setZoom(this.killCam.zoom);
 
     player.update(dt, input.steer);
     this.stats.distance = player.distance;
@@ -454,6 +463,7 @@ export class Game {
         if (result.killed) {
           this.stats.kills += 1;
           if (part === 'head') this.stats.headshots += 1;
+          this.killCam.kill(part === 'head');
           if (Math.random() < 0.6) {
             if (zombie instanceof Zombie) this.voice(zombie, 'death');
             else this.sfx.groan(zombie.position, 'death');
@@ -474,6 +484,8 @@ export class Game {
 
   private gameOver(): void {
     this.state = 'over';
+    this.killCam.cancel();
+    this.player.setZoom(0);
     this.offer = null;
     this.player.gunVisible = false;
     this.hud.gameOver(this.stats);
