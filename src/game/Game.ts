@@ -2,16 +2,28 @@ import * as THREE from 'three';
 import type { LoadedAssets } from '../assets/manifest';
 import { Atmosphere } from './Atmosphere';
 import { CONFIG } from './config';
+import { CornField } from './CornField';
+import { Course } from './Course';
 import { Effects } from './Effects';
 import { Hud, type RunStats } from './Hud';
 import { Input } from './Input';
 import type { HitPart } from './logic';
-import { spawnInterval } from './logic';
+import { cornCover, mulberry32, planCourse, spawnInterval } from './logic';
 import { Player } from './Player';
 import { Sfx } from './Sfx';
+import { PICKUP_WEAPONS, WEAPONS, type WeaponId } from './weapons';
 import { WheatField } from './WheatField';
 import { World } from './World';
 import { Zombie } from './Zombie';
+
+/** Planned course length; far beyond any realistic run. */
+const COURSE_LENGTH = 30000;
+
+interface Offer {
+  weapon: WeaponId;
+  /** Real seconds left to decide. */
+  left: number;
+}
 
 type GameState = 'menu' | 'playing' | 'paused' | 'over';
 
@@ -35,6 +47,11 @@ export class Game {
   private readonly player: Player;
   private readonly world: World;
   private readonly wheat: WheatField;
+  private readonly corn: CornField;
+  private readonly course: Course;
+  private offer: Offer | null = null;
+  private cover = 0;
+  private rustleTimer = 0;
   private readonly atmosphere: Atmosphere;
   private readonly assets: LoadedAssets;
   private elapsed = 0;
@@ -62,16 +79,20 @@ export class Game {
     this.atmosphere = new Atmosphere(this.scene, density);
     this.world = new World(this.scene, assets);
     this.wheat = new WheatField(this.scene, density);
-    this.player = new Player(window.innerWidth / window.innerHeight, assets.weapon);
+    this.corn = new CornField(this.scene, density);
+    this.course = new Course(this.scene, assets, () => this.pickupWeapon());
+    this.wheat.isCorn = (d) => this.course.corn.some((c) => d > c.start - 1 && d < c.end + 1);
+    this.player = new Player(window.innerWidth / window.innerHeight, assets.weapons);
     this.scene.add(this.player.camera);
     this.effects = new Effects(this.scene);
     this.input = new Input(canvas);
-    this.raycaster.far = CONFIG.gun.range;
 
     this.input.bindSteerButton(this.hud.steerLeft, -1);
     this.input.bindSteerButton(this.hud.steerRight, 1);
     this.hud.startButton.addEventListener('click', () => this.begin());
     this.hud.retryButton.addEventListener('click', () => this.begin());
+    this.hud.offerTake.addEventListener('click', () => this.input.choose('take'));
+    this.hud.offerKeep.addEventListener('click', () => this.input.choose('keep'));
     window.addEventListener('resize', () => this.resize());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'playing') this.setPaused(true);
@@ -94,6 +115,15 @@ export class Game {
     for (const z of this.zombies) this.scene.remove(z.root);
     this.zombies.length = 0;
     this.player.reset();
+    this.hud.setWeapon(this.player.weapon);
+    this.offer = null;
+    this.hud.hideOffer();
+    // A fresh layout of fences, corn and pickups every run.
+    const plan = planCourse(mulberry32((Math.random() * 2 ** 32) >>> 0), COURSE_LENGTH);
+    this.course.reset(plan);
+    this.corn.reset(plan.corn);
+    this.cover = 0;
+    this.atmosphere.setCover(this.scene, 0);
     this.world.reset();
     this.wheat.reset();
     this.atmosphere.reset(this.player.position);
@@ -118,8 +148,37 @@ export class Game {
   private setPaused(paused: boolean): void {
     this.state = paused ? 'paused' : 'playing';
     this.hud.show(paused ? 'paused' : null);
+    if (this.offer) {
+      if (paused) this.hud.hideOffer();
+      else this.hud.showOffer(WEAPONS[this.offer.weapon], this.player.weapon);
+    }
     this.input.clearQueued();
     this.lastTime = performance.now();
+  }
+
+  /** A pickup weapon other than the one in hand. */
+  private pickupWeapon(): WeaponId {
+    const options = PICKUP_WEAPONS.filter((id) => id !== this.player.weapon.id);
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  private openOffer(weapon: WeaponId): void {
+    this.offer = { weapon, left: CONFIG.pickups.decisionTime };
+    this.input.clearQueued();
+    this.hud.showOffer(WEAPONS[weapon], this.player.weapon);
+    this.sfx.offer();
+  }
+
+  private closeOffer(take: boolean): void {
+    if (!this.offer) return;
+    if (take) {
+      this.player.equip(WEAPONS[this.offer.weapon]);
+      this.hud.setWeapon(this.player.weapon);
+      this.sfx.swap();
+    }
+    this.offer = null;
+    this.hud.hideOffer();
+    this.input.clearQueued();
   }
 
   private spawnZombie(ahead?: number): void {
@@ -154,19 +213,51 @@ export class Game {
     this.renderer.render(this.scene, this.player.camera);
   }
 
-  private update(dt: number): void {
+  private update(realDt: number): void {
     const { player, input } = this;
+    let dt = realDt;
+    // Choosing a weapon: the world crawls in slow motion until the player decides.
+    if (this.offer) {
+      this.offer.left -= realDt;
+      this.hud.updateOffer(Math.max(0, this.offer.left / CONFIG.pickups.decisionTime));
+      const choice = input.consumeChoice();
+      if (choice) this.closeOffer(choice === 'take');
+      else if (this.offer.left <= 0) this.closeOffer(false);
+      else dt *= CONFIG.pickups.decisionTimeScale;
+    }
+
     player.update(dt, input.steer);
     this.stats.distance = player.distance;
     this.world.update(player.position);
+    this.corn.update(player.position);
+
+    const event = this.course.update(dt, player.distance, player.position.x);
+    if (event === 'vault' && !player.vaulting) {
+      player.vault();
+      this.sfx.vault();
+    } else if (event === 'pickup' && !this.offer && this.course.pickup) {
+      this.openOffer(this.course.pickup.weapon);
+      this.course.consumePickup();
+    }
+
+    this.cover = cornCover(this.course.corn, player.distance);
+    this.atmosphere.setCover(this.scene, this.cover);
 
     this.aimNdc.set(input.aim.x, input.aim.y);
     player.camera.updateMatrixWorld();
     this.raycaster.setFromCamera(this.aimNdc, player.camera);
     player.aimAt(this.raycaster.ray.at(30, this.tmpA));
 
-    if (input.consumeReload() && player.startReload()) this.sfx.reload();
-    if (input.consumeFire()) this.tryFire();
+    if (this.offer) {
+      input.consumeFire();
+      input.consumeReload();
+    } else {
+      if (input.consumeReload() && player.startReload()) this.sfx.reload();
+      const clicked = input.consumeFire();
+      if (player.weapon.automatic ? clicked || input.fireHeld : clicked) this.tryFire(!clicked);
+    }
+
+    this.updateAudio(dt);
 
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
@@ -178,9 +269,12 @@ export class Game {
 
     let grabbed = false;
     const feet = this.tmpB.set(player.position.x, 0, player.position.z);
+    const fence = this.course.activeFence;
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       const z = this.zombies[i];
-      if (z.update(dt, feet)) grabbed = true;
+      // Zombies clamber over the fence slowly too.
+      const slow = fence !== null && Math.abs(z.position.z + fence) < 0.9 ? 0.3 : 1;
+      if (z.update(dt, feet, slow)) grabbed = true;
       if (z.state === 'dead' || z.position.z > player.position.z + CONFIG.zombies.despawnBehind) {
         this.scene.remove(z.root);
         this.zombies.splice(i, 1);
@@ -188,47 +282,107 @@ export class Game {
     }
 
     this.effects.update(dt);
-    const reloading = player.reloadLeft > 0 ? 1 - player.reloadLeft / CONFIG.gun.reloadTime : null;
+    const reloading = player.reloadLeft > 0 ? 1 - player.reloadLeft / player.weapon.reloadTime : null;
     this.hud.update(this.stats, player.ammo, reloading);
 
     if (grabbed) this.gameOver();
   }
 
-  private tryFire(): void {
+  /** Footsteps, corn brushing past and zombie groans. */
+  private updateAudio(dt: number): void {
+    const { player, sfx } = this;
+    sfx.setListener(player.camera.position);
+    const inCorn = this.cover > 0.3;
+    if (player.stepped && !player.vaulting) sfx.footstep(inCorn ? 'corn' : 'wheat');
+    if (inCorn) {
+      this.rustleTimer -= dt;
+      if (this.rustleTimer <= 0) {
+        // Pushing sideways through the rows drags more leaves across you.
+        const steer = Math.abs(this.input.steer);
+        sfx.rustle(0.6 + steer * 0.7);
+        this.rustleTimer = (0.35 + Math.random() * 0.5) * (steer > 0 ? 0.5 : 1);
+      }
+    }
+
+    for (const z of this.zombies) {
+      if (!z.alive) continue;
+      if (z.startedLunge) {
+        sfx.groan(z.position, 'snarl');
+        z.groanIn = 2 + Math.random() * 3;
+        continue;
+      }
+      z.groanIn -= dt;
+      if (z.groanIn > 0) continue;
+      z.groanIn = 3 + Math.random() * 6;
+      const dist = Math.hypot(z.position.x - player.position.x, z.position.z - player.position.z);
+      if (dist < 45) sfx.groan(z.position);
+    }
+  }
+
+  /** `held` = automatic fire from a held trigger (no dry-fire clicks). */
+  private tryFire(held = false): void {
     const { player } = this;
+    const weapon = player.weapon;
     if (!player.canFire()) {
       if (player.ammo === 0 && player.startReload()) this.sfx.reload();
-      else if (player.reloadLeft > 0) this.sfx.click();
+      else if (player.reloadLeft > 0 && !held) this.sfx.click();
       return;
     }
     player.fire();
-    this.sfx.shot();
+    this.sfx.shot(weapon.id);
 
     const targets = this.zombies.filter((z) => z.alive).flatMap((z) => z.hitMeshes);
-    const hit = this.raycaster.intersectObjects(targets, false)[0];
     const muzzle = player.muzzleWorldPosition(this.tmpA);
+    const origin = this.raycaster.ray.origin.clone();
+    const aim = this.raycaster.ray.direction.clone();
+    this.raycaster.far = weapon.range;
+    let anyHit = false;
 
-    if (hit) {
-      const zombie = hit.object.userData.zombie as Zombie;
-      const part = hit.object.userData.part as HitPart;
-      const result = zombie.hit(part, hit.point);
-      this.effects.blood(hit.point, this.raycaster.ray.direction, result.killed ? 26 : 10);
-      this.effects.shot(muzzle, hit.point);
-      this.sfx.hit();
-      if (result.killed) {
-        this.stats.kills += 1;
-        if (part === 'head') this.stats.headshots += 1;
+    for (let p = 0; p < weapon.pellets; p++) {
+      const dir = this.tmpB.copy(aim);
+      if (weapon.spread > 0) {
+        // Random point in a cone around the aim.
+        const r = weapon.spread * Math.sqrt(Math.random());
+        const a = Math.random() * Math.PI * 2;
+        dir.x += Math.cos(a) * r;
+        dir.y += Math.sin(a) * r;
+        dir.z += (Math.random() - 0.5) * r;
+        dir.normalize();
       }
-    } else {
-      this.effects.shot(muzzle, this.raycaster.ray.at(CONFIG.gun.range, this.tmpB));
+      this.raycaster.set(origin, dir);
+      const hits = this.raycaster.intersectObjects(targets, false);
+      const struck = new Set<Zombie>();
+      let end: THREE.Vector3 | null = null;
+      for (const hit of hits) {
+        const zombie = hit.object.userData.zombie as Zombie;
+        if (struck.has(zombie) || !zombie.alive) continue;
+        struck.add(zombie);
+        const part = hit.object.userData.part as HitPart;
+        const result = zombie.hit(part, hit.point, weapon.damage);
+        this.effects.blood(hit.point, dir, result.killed ? 26 : 10);
+        end = hit.point;
+        anyHit = true;
+        if (result.killed) {
+          this.stats.kills += 1;
+          if (part === 'head') this.stats.headshots += 1;
+          if (Math.random() < 0.6) this.sfx.groan(zombie.position, 'death');
+        }
+        if (struck.size >= weapon.pierce) break;
+      }
+      // One tracer per shot is enough, even for the shotgun.
+      if (p === 0) this.effects.shot(muzzle, end ?? this.raycaster.ray.at(weapon.range, new THREE.Vector3()));
     }
-    this.hud.pulseCrosshair(Boolean(hit));
+    // Restore the aim ray for the rest of the frame.
+    this.raycaster.set(origin, aim);
+    if (anyHit) this.sfx.hit();
+    this.hud.pulseCrosshair(anyHit);
 
     if (player.ammo === 0 && player.startReload()) this.sfx.reload();
   }
 
   private gameOver(): void {
     this.state = 'over';
+    this.offer = null;
     this.player.gunVisible = false;
     this.hud.gameOver(this.stats);
   }

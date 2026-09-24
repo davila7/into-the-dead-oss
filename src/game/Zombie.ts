@@ -21,6 +21,10 @@ export class Zombie {
   private readonly speed: number;
   private flinch = 0;
   private deathTime = 0;
+  /** Seconds until this zombie groans again (driven by the game's audio). */
+  groanIn = 1 + Math.random() * 6;
+  /** Set for the frame in which the zombie starts its lunge. */
+  startedLunge = false;
 
   constructor(x: number, z: number, model?: LoadedZombie) {
     const cfg = CONFIG.zombies;
@@ -44,7 +48,9 @@ export class Zombie {
   }
 
   /** Returns true when this zombie reaches the player. */
-  update(dt: number, player: THREE.Vector3): boolean {
+  /** `slow` scales walking speed, e.g. while clambering over a fence. */
+  update(dt: number, player: THREE.Vector3, slow = 1): boolean {
+    this.startedLunge = false;
     if (!this.alive) {
       this.updateDeath(dt);
       return false;
@@ -54,10 +60,13 @@ export class Zombie {
     const dist = Math.hypot(player.x - p.x, player.z - p.z);
     const cfg = CONFIG.zombies;
     // Only lunge at a player that is still in front (the player moves towards -Z).
-    if (this.state === 'walking' && dist < cfg.lungeDistance && p.z < player.z) this.state = 'lunging';
+    if (this.state === 'walking' && dist < cfg.lungeDistance && p.z < player.z) {
+      this.state = 'lunging';
+      this.startedLunge = true;
+    }
 
     const lunging = this.state === 'lunging';
-    const speed = (lunging ? cfg.lungeSpeed : this.speed) * (this.flinch > 0 ? 0.2 : 1);
+    const speed = (lunging ? cfg.lungeSpeed : this.speed) * (this.flinch > 0 ? 0.2 : 1) * slow;
     const next = stepTowards(p.x, p.z, player.x, player.z, speed, dt);
     p.x = next.x;
     p.z = next.z;
@@ -79,8 +88,8 @@ export class Zombie {
     this.body.animateDeath(dt);
   }
 
-  hit(part: HitPart, point: THREE.Vector3): HitResult {
-    const r = applyHit(this.health, part);
+  hit(part: HitPart, point: THREE.Vector3, damage = 1): HitResult {
+    const r = applyHit(this.health, part, damage);
     this.health = r.health;
     if (r.killed) this.state = 'dying';
     else this.flinch = 0.25;

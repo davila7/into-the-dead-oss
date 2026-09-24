@@ -49,6 +49,47 @@ body.playing #game { cursor: none; }
   transition: opacity 0.1s;
 }
 .pip.spent { opacity: 0.18; }
+.pip.shell { width: 11px; height: 22px; border-radius: 2px; background: linear-gradient(#d0463a 0 70%, #c9a24a 70%); }
+.ammo-count { font-size: 24px; font-weight: 700; letter-spacing: 0.04em; text-shadow: 0 2px 6px #000; }
+#hud-weapon { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.75; text-shadow: 0 1px 4px #000; }
+
+/* Weapon found: take it or keep the current one */
+#offer {
+  position: fixed;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 18px 12px;
+  text-align: center;
+  background: #0e1014e6;
+  border: 1px solid #d8e27a66;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px #000a;
+  animation: offer-in 0.2s ease-out;
+}
+#offer[hidden] { display: none; }
+@keyframes offer-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+.offer-title { font-size: 20px; }
+.offer-title b { color: #d8e27a; }
+#offer-blurb { margin: 6px 0 12px; font-size: 14px; opacity: 0.8; }
+.offer-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.offer-buttons button {
+  flex: 1 1 150px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e8e4da;
+  background: #ffffff14;
+  border: 1px solid #ffffff44;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#offer-take { color: #0e1014; background: #d8e27a; border-color: #d8e27a; }
+.offer-buttons kbd { margin-left: 4px; }
+#offer-take kbd { border-color: #0e101455; background: #0e101414; }
+.offer-timer { height: 3px; margin-top: 12px; background: #ffffff22; }
+#offer-timer-bar { height: 100%; width: 100%; background: #d8e27a; }
 #hud-reload { font-size: 12px; letter-spacing: 0.2em; text-align: right; }
 #hud-reload .bar { width: 120px; height: 4px; margin-top: 4px; background: #ffffff30; }
 #hud-reload-bar { height: 100%; width: 0; background: #e8c26a; }

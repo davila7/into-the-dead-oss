@@ -1,81 +1,158 @@
 import * as THREE from 'three';
 import type { LoadedModel } from '../assets/manifest';
 import { CONFIG } from './config';
-import { clamp, lerp, playerSpeed } from './logic';
+import { clamp, lerp, playerSpeed, vaultProfile } from './logic';
+import { WEAPONS, type WeaponDef, type WeaponId } from './weapons';
 
-/** First-person runner: auto-advances towards -Z, steers on X, carries a pistol. */
+/** Where each viewmodel sits in front of the camera (x right, y up, z forward = -). */
+const HOLD: Record<WeaponId, [number, number, number]> = {
+  pistol: [0.17, -0.16, -0.42],
+  shotgun: [0.19, -0.2, -0.5],
+  rifle: [0.19, -0.19, -0.52],
+  smg: [0.18, -0.17, -0.45],
+};
+
+const SWAP_TIME = 0.5;
+
+/** Box-and-cylinder stand-in for a weapon whose generated model is missing. Muzzle at -Z. */
+export function makePlaceholderGun(id: WeaponId): { group: THREE.Group; muzzle: THREE.Vector3 } {
+  const metal = new THREE.MeshLambertMaterial({ color: 0x2b2d31 });
+  const wood = new THREE.MeshLambertMaterial({ color: 0x4a3526 });
+  const skin = new THREE.MeshLambertMaterial({ color: 0x5a4030 });
+  const g = new THREE.Group();
+  const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, rx = 0) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    g.add(m);
+  };
+  const tube = (r: number, len: number, y: number, z: number) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), metal);
+    m.rotation.x = Math.PI / 2;
+    m.position.set(0, y, z);
+    g.add(m);
+  };
+  box(0.06, 0.07, 0.08, skin, 0.005, -0.07, 0.07); // gloved hand
+  switch (id) {
+    case 'shotgun':
+      tube(0.014, 0.6, 0.01, -0.22);
+      box(0.04, 0.035, 0.16, wood, 0, -0.018, -0.2); // pump
+      box(0.04, 0.05, 0.14, metal, 0, 0.005, 0.06);
+      box(0.035, 0.07, 0.26, wood, 0, -0.03, 0.24, 0.12);
+      return { group: g, muzzle: new THREE.Vector3(0, 0.01, -0.52) };
+    case 'rifle':
+      tube(0.009, 0.62, 0.012, -0.24);
+      box(0.035, 0.03, 0.22, wood, 0, -0.012, -0.12);
+      box(0.035, 0.045, 0.14, metal, 0, 0.005, 0.06);
+      box(0.012, 0.05, 0.07, metal, 0, -0.045, 0.06); // lever
+      box(0.032, 0.065, 0.28, wood, 0, -0.03, 0.26, 0.12);
+      return { group: g, muzzle: new THREE.Vector3(0, 0.012, -0.55) };
+    case 'smg':
+      box(0.04, 0.055, 0.26, metal, 0, 0, -0.04);
+      tube(0.01, 0.08, 0.005, -0.21);
+      box(0.025, 0.12, 0.03, metal, 0, -0.08, -0.06); // magazine
+      box(0.03, 0.08, 0.04, metal, 0, -0.05, 0.06, -0.25);
+      return { group: g, muzzle: new THREE.Vector3(0, 0.005, -0.25) };
+    default:
+      box(0.035, 0.04, 0.17, metal, 0, 0, 0);
+      tube(0.008, 0.03, 0.004, -0.095);
+      box(0.03, 0.09, 0.045, wood, 0, -0.055, 0.05, -0.25);
+      return { group: g, muzzle: new THREE.Vector3(0, 0.004, -0.11) };
+  }
+}
+
+/** First-person runner: auto-advances towards -Z, steers on X, carries one weapon. */
 export class Player {
   readonly camera: THREE.PerspectiveCamera;
   readonly position = new THREE.Vector3();
   distance = 0;
 
-  ammo: number = CONFIG.gun.magazine;
+  weapon: WeaponDef = WEAPONS.pistol;
+  ammo = WEAPONS.pistol.magazine;
   reloadLeft = 0;
+  /** Set for the frame in which a footstep lands. */
+  stepped = false;
   private cooldown = 0;
   private strafeVel = 0;
   private bob = 0;
   private recoil = 0;
+  private swapLeft = 0;
+  private vaultLeft = 0;
 
   private readonly gun = new THREE.Group();
+  private readonly holder = new THREE.Group();
   private readonly muzzle = new THREE.Object3D();
   private readonly flash: THREE.Mesh;
   private readonly flashLight = new THREE.PointLight(0xffc680, 0, 12, 2);
   private readonly tmp = new THREE.Vector3();
+  private readonly viewmodels = new Map<WeaponId, { group: THREE.Object3D; muzzle: THREE.Vector3 }>();
 
-  constructor(aspect: number, weapon?: LoadedModel) {
+  constructor(aspect: number, private readonly models: Partial<Record<WeaponId, LoadedModel>>) {
     this.camera = new THREE.PerspectiveCamera(70, aspect, 0.05, 200);
-
-    const metal = new THREE.MeshLambertMaterial({ color: 0x2b2d31 });
-    const grip = new THREE.MeshLambertMaterial({ color: 0x4a3526 });
-    const skin = new THREE.MeshLambertMaterial({ color: 0xb58a6a });
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.17), metal);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 8), metal);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.004, -0.095);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.045), grip);
-    handle.position.set(0, -0.055, 0.05);
-    handle.rotation.x = -0.25;
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.08), skin);
-    hand.position.set(0.005, -0.07, 0.07);
-    if (weapon) {
-      // Generated hand + pistol: centre it on the grip position and keep the muzzle at its front.
-      const model = weapon.scene.clone(true);
-      const box = new THREE.Box3().setFromObject(model);
-      const centre = box.getCenter(new THREE.Vector3());
-      model.position.sub(centre);
-      model.position.y -= 0.03;
-      this.gun.add(model);
-      this.muzzle.position.copy(findMuzzle(model, this.gun));
-    } else {
-      this.gun.add(slide, barrel, handle, hand);
-      this.muzzle.position.set(0, 0.004, -0.11);
-    }
-    this.gun.add(this.muzzle);
 
     this.flash = new THREE.Mesh(
       new THREE.PlaneGeometry(0.12, 0.12),
       new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false, fog: false }),
     );
     this.muzzle.add(this.flash, this.flashLight);
-
-    this.gun.position.set(0.17, -0.16, -0.42);
+    this.gun.add(this.holder, this.muzzle);
     this.camera.add(this.gun);
     this.reset();
+  }
+
+  private viewmodel(id: WeaponId): { group: THREE.Object3D; muzzle: THREE.Vector3 } {
+    let vm = this.viewmodels.get(id);
+    if (vm) return vm;
+    const model = this.models[id];
+    if (model) {
+      // Generated hand + weapon: centre it on the grip position and keep the muzzle at its front.
+      const group = model.scene.clone(true);
+      const box = new THREE.Box3().setFromObject(group);
+      group.position.sub(box.getCenter(new THREE.Vector3()));
+      group.position.y -= 0.03;
+      // Unparented, so its own frame equals the holder frame the muzzle lives in.
+      vm = { group, muzzle: findMuzzle(group, new THREE.Object3D()) };
+    } else {
+      vm = makePlaceholderGun(id);
+    }
+    this.viewmodels.set(id, vm);
+    return vm;
+  }
+
+  /** Puts `def` in the player's hands with a full magazine. */
+  equip(def: WeaponDef, animate = true): void {
+    this.weapon = def;
+    this.ammo = def.magazine;
+    this.reloadLeft = 0;
+    this.cooldown = animate ? SWAP_TIME * 0.6 : 0;
+    this.swapLeft = animate ? SWAP_TIME : 0;
+    this.holder.clear();
+    const vm = this.viewmodel(def.id);
+    this.holder.add(vm.group);
+    this.muzzle.position.copy(vm.muzzle);
   }
 
   set gunVisible(visible: boolean) {
     this.gun.visible = visible;
   }
 
+  get vaulting(): boolean {
+    return this.vaultLeft > 0;
+  }
+
+  /** Starts the automatic climb over a fence. */
+  vault(): void {
+    this.vaultLeft = CONFIG.fences.vaultTime;
+  }
+
   reset(): void {
     this.gun.visible = true;
     this.position.set(0, CONFIG.player.eyeHeight, 0);
     this.distance = 0;
-    this.ammo = CONFIG.gun.magazine;
-    this.reloadLeft = 0;
-    this.cooldown = 0;
     this.strafeVel = 0;
     this.recoil = 0;
+    this.vaultLeft = 0;
+    this.equip(WEAPONS.pistol, false);
     this.syncCamera();
   }
 
@@ -83,31 +160,42 @@ export class Player {
     return playerSpeed(this.distance);
   }
 
+  private get vaultProgress(): number {
+    return this.vaultLeft > 0 ? 1 - this.vaultLeft / CONFIG.fences.vaultTime : 0;
+  }
+
   update(dt: number, steer: number): void {
     const cfg = CONFIG.player;
-    const forward = this.speed * dt;
+    const vault = vaultProfile(this.vaultProgress);
+    const forward = this.speed * vault.speed * dt;
     this.position.z -= forward;
     this.distance += forward;
+    this.vaultLeft = Math.max(0, this.vaultLeft - dt);
 
-    // Ease strafe velocity for a less twitchy feel.
-    this.strafeVel = lerp(this.strafeVel, steer * cfg.strafeSpeed, clamp(dt * 10, 0, 1));
+    // Ease strafe velocity for a less twitchy feel; no steering mid-climb.
+    const steerTarget = this.vaulting ? 0 : steer * cfg.strafeSpeed;
+    this.strafeVel = lerp(this.strafeVel, steerTarget, clamp(dt * 10, 0, 1));
     this.position.x = clamp(this.position.x + this.strafeVel * dt, -cfg.laneHalfWidth, cfg.laneHalfWidth);
 
-    this.bob += dt * this.speed * 1.6;
+    const lastStep = Math.floor(this.bob / Math.PI);
+    if (!this.vaulting) this.bob += dt * this.speed * 1.6;
+    this.stepped = Math.floor(this.bob / Math.PI) !== lastStep;
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.recoil = Math.max(0, this.recoil - dt * 6);
+    this.swapLeft = Math.max(0, this.swapLeft - dt);
 
     if (this.reloadLeft > 0) {
       this.reloadLeft -= dt;
       if (this.reloadLeft <= 0) {
         this.reloadLeft = 0;
-        this.ammo = CONFIG.gun.magazine;
+        this.ammo = this.weapon.magazine;
       }
     }
 
     const flashOn = this.recoil > 0.75;
     (this.flash.material as THREE.MeshBasicMaterial).opacity = flashOn ? 1 : 0;
     this.flash.rotation.z = Math.random() * Math.PI;
+    this.flash.scale.setScalar(0.7 + this.weapon.recoil * 0.4);
     this.flashLight.intensity = flashOn ? 6 : 0;
 
     this.syncCamera();
@@ -115,20 +203,28 @@ export class Player {
 
   private syncCamera(): void {
     const c = this.camera;
-    c.position.set(this.position.x, this.position.y + Math.abs(Math.sin(this.bob)) * 0.06, this.position.z);
-    c.rotation.set(this.recoil * 0.05, 0, -this.strafeVel * 0.008 + Math.sin(this.bob) * 0.004);
+    const vault = vaultProfile(this.vaultProgress);
+    const lift = vault.lift * CONFIG.fences.vaultHeight;
+    c.position.set(this.position.x, this.position.y + Math.abs(Math.sin(this.bob)) * 0.06 + lift, this.position.z);
+    // Look down at the rail on the way up, then level out on landing.
+    const vaultPitch = -Math.sin(this.vaultProgress * Math.PI) * 0.22;
+    const kick = this.recoil * this.weapon.recoil;
+    c.rotation.set(kick * 0.05 + vaultPitch, 0, -this.strafeVel * 0.008 + Math.sin(this.bob) * 0.004);
 
-    // Gun sway + recoil kick + dip while reloading.
-    const reloadDip = this.reloadLeft > 0 ? Math.sin((this.reloadLeft / CONFIG.gun.reloadTime) * Math.PI) * 0.25 : 0;
+    // Gun sway + recoil kick + dip while reloading, swapping or climbing.
+    const reloadDip = this.reloadLeft > 0 ? Math.sin((this.reloadLeft / this.weapon.reloadTime) * Math.PI) * 0.25 : 0;
+    const swapDip = this.swapLeft > 0 ? Math.sin((this.swapLeft / SWAP_TIME) * Math.PI) * 0.35 : 0;
+    const dip = reloadDip + swapDip + vault.lift * 0.15;
+    const [hx, hy, hz] = HOLD[this.weapon.id];
     this.gun.position.set(
-      0.17 + Math.sin(this.bob) * 0.008,
-      -0.16 - Math.abs(Math.cos(this.bob)) * 0.008 - reloadDip * 0.6,
-      -0.42 + this.recoil * 0.04,
+      hx + Math.sin(this.bob) * 0.008,
+      hy - Math.abs(Math.cos(this.bob)) * 0.008 - dip * 0.6,
+      hz + kick * 0.04,
     );
-    this.gun.rotation.set(this.recoil * 0.35 + reloadDip * 2, 0, 0);
+    this.gun.rotation.set(kick * 0.35 + dip * 2, 0, swapDip * 0.8);
   }
 
-  /** Points the pistol at a world-space target so it tracks the crosshair. */
+  /** Points the weapon at a world-space target so it tracks the crosshair. */
   aimAt(target: THREE.Vector3): void {
     const local = this.camera.worldToLocal(this.tmp.copy(target));
     // Partial, clamped tracking: enough to read as aiming without swinging the gun sideways.
@@ -137,19 +233,19 @@ export class Player {
   }
 
   canFire(): boolean {
-    return this.cooldown <= 0 && this.reloadLeft <= 0 && this.ammo > 0;
+    return this.cooldown <= 0 && this.reloadLeft <= 0 && this.swapLeft <= 0 && this.ammo > 0;
   }
 
   fire(): void {
     this.ammo -= 1;
-    this.cooldown = CONFIG.gun.fireCooldown;
+    this.cooldown = this.weapon.fireCooldown;
     this.recoil = 1;
   }
 
   /** Returns true if a reload actually started. */
   startReload(): boolean {
-    if (this.reloadLeft > 0 || this.ammo === CONFIG.gun.magazine) return false;
-    this.reloadLeft = CONFIG.gun.reloadTime;
+    if (this.reloadLeft > 0 || this.ammo === this.weapon.magazine) return false;
+    this.reloadLeft = this.weapon.reloadTime;
     return true;
   }
 

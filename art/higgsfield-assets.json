@@ -78,6 +78,69 @@
       "model_job": "e5721e06-1998-4e5a-9ff0-eec5804d2ac4",
       "animation": null,
       "prompt": "3D game asset reference: a right hand in a worn brown leather work glove gripping a scuffed black semi-automatic pistol, finger resting beside the trigger, seen exactly from the side (right-side profile), barrel pointing to the left, wrist and a bit of dark denim jacket sleeve visible at the right edge, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "viewmodel-shotgun",
+      "out": "public/assets/models/viewmodel-shotgun.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_134850_cd9f9d84-ab75-40b6-bf43-a8771fd7c93e.glb",
+      "image_job": "02748d4b-60f2-4132-848c-72a4b6b484ba",
+      "model_job": "cd9f9d84-ab75-40b6-bf43-a8771fd7c93e",
+      "animation": null,
+      "prompt": "3D game asset reference: a right hand in a worn brown leather work glove gripping a scuffed pump-action shotgun with a dark worn wooden stock and pump, black steel barrel, finger resting beside the trigger, seen exactly from the side (right-side profile), barrel pointing to the left, stock and a bit of dark denim jacket sleeve at the right edge, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "viewmodel-rifle",
+      "out": "public/assets/models/viewmodel-rifle.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_134853_95236e72-e420-4380-898a-439d301a453c.glb",
+      "image_job": "1ea1e60a-d38a-4b77-b6ec-8bc5f7ff8895",
+      "model_job": "95236e72-e420-4380-898a-439d301a453c",
+      "animation": null,
+      "prompt": "3D game asset reference: a right hand in a worn brown leather work glove gripping an old lever-action hunting rifle with a scratched walnut stock and forend and a dark blued steel barrel, finger resting beside the trigger inside the lever loop, seen exactly from the side (right-side profile), barrel pointing to the left, stock and a bit of dark denim jacket sleeve at the right edge, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "viewmodel-smg",
+      "out": "public/assets/models/viewmodel-smg.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_135054_4fb2f608-21a4-4306-a1aa-da6a169e9988.glb",
+      "image_job": "59705120-6ec0-4b30-8062-d5a2bf1bfaa5",
+      "model_job": "4fb2f608-21a4-4306-a1aa-da6a169e9988",
+      "animation": null,
+      "prompt": "3D game asset reference: a right hand in a worn brown leather work glove gripping a compact black submachine gun with a short straight magazine and a folded wire stock, scuffed matte finish, finger resting beside the trigger, seen exactly from the side (right-side profile), barrel pointing to the left, a bit of dark denim jacket sleeve at the right edge, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "pickup-shotgun",
+      "out": "public/assets/models/pickup-shotgun.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_135057_c0ea8a06-9ebf-4cf1-9f2a-c5f3d6ec3174.glb",
+      "image_job": "0ad1299e-68de-45e5-91ce-a2b43609ca15",
+      "model_job": "c0ea8a06-9ebf-4cf1-9f2a-c5f3d6ec3174",
+      "animation": null,
+      "prompt": "3D game asset reference: a single scuffed pump-action shotgun with a dark worn wooden stock and pump and a black steel barrel, seen exactly from the side, barrel pointing to the left, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "pickup-rifle",
+      "out": "public/assets/models/pickup-rifle.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_134856_1d36c354-a654-44bd-8b29-c23a3b26f931.glb",
+      "image_job": "4198375f-6754-4553-9c86-2b6e4f3b0b8c",
+      "model_job": "1d36c354-a654-44bd-8b29-c23a3b26f931",
+      "animation": null,
+      "prompt": "3D game asset reference: a single old lever-action hunting rifle with a scratched walnut stock and forend and a dark blued steel barrel, seen exactly from the side, barrel pointing to the left, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "pickup-smg",
+      "out": "public/assets/models/pickup-smg.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_135100_9c057876-5d59-43ae-89bf-66f7fb0c59a4.glb",
+      "image_job": "143139e3-f740-4c6e-84c8-611bb826528b",
+      "model_job": "9c057876-5d59-43ae-89bf-66f7fb0c59a4",
+      "animation": null,
+      "prompt": "3D game asset reference: a single compact black submachine gun with a short straight magazine and a folded wire stock, scuffed matte finish, seen exactly from the side, barrel pointing to the left, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "fence-broken",
+      "out": "public/assets/models/fence-broken.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_134901_e6375a6f-aa63-4200-a8ec-9ebcdd013d6d.glb",
+      "image_job": "4dd62633-010d-4ef4-9bad-6a53bb1a5bcd",
+      "model_job": "e6375a6f-aa63-4200-a8ec-9ebcdd013d6d",
+      "animation": null,
+      "prompt": "3D game asset reference: one section of an old broken farm fence made of rotten, charred, almost black weathered wood: two leaning square posts with three horizontal rails between them, the middle rail snapped in half and hanging down, splintered ends, patches of dark rot and moss, seen straight from the front, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
     }
   ]
 }

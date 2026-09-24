@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
-import { applyHit, mulberry32, playerSpeed, spawnInterval, stepTowards } from './logic';
+import { applyHit, cornCover, mulberry32, planCourse, playerSpeed, spawnInterval, stepTowards, vaultProfile } from './logic';
 
 describe('applyHit', () => {
   it('kills on a headshot regardless of health', () => {
@@ -15,6 +15,10 @@ describe('applyHit', () => {
       health = r.health;
     }
     expect(applyHit(health, 'body').killed).toBe(true);
+  });
+
+  it('applies weapon damage to body shots', () => {
+    expect(applyHit(CONFIG.gun.bodyHealth, 'body', CONFIG.gun.bodyHealth).killed).toBe(true);
   });
 });
 
@@ -54,5 +58,64 @@ describe('mulberry32', () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThan(1);
     }
+  });
+});
+
+describe('planCourse', () => {
+  const plan = planCourse(mulberry32(3), 6000);
+
+  it('starts each kind of event only after its first distance', () => {
+    expect(plan.fences[0]).toBeGreaterThanOrEqual(CONFIG.fences.first);
+    expect(plan.corn[0].start).toBe(CONFIG.corn.first);
+    expect(plan.pickups[0].at).toBeGreaterThanOrEqual(CONFIG.pickups.first);
+  });
+
+  it('keeps fences sparse and out of the corn', () => {
+    expect(plan.fences.length).toBeGreaterThan(3);
+    for (let i = 1; i < plan.fences.length; i++) {
+      expect(plan.fences[i] - plan.fences[i - 1]).toBeGreaterThanOrEqual(CONFIG.fences.gapMin);
+    }
+    for (const at of plan.fences) {
+      expect(plan.corn.some((c) => at > c.start - 25 && at < c.end + 25)).toBe(false);
+    }
+  });
+
+  it('keeps pickups out of the corn and off the running line', () => {
+    for (const p of plan.pickups) {
+      expect(plan.corn.some((c) => p.at > c.start - 20 && p.at < c.end + 20)).toBe(false);
+      expect(Math.abs(p.x)).toBeGreaterThanOrEqual(CONFIG.pickups.offsetMin);
+      expect(Math.abs(p.x)).toBeLessThanOrEqual(CONFIG.pickups.offsetMax);
+    }
+  });
+
+  it('makes corn stretches of bounded length with gaps between them', () => {
+    for (const c of plan.corn) {
+      expect(c.end - c.start).toBeGreaterThanOrEqual(CONFIG.corn.lengthMin);
+      expect(c.end - c.start).toBeLessThanOrEqual(CONFIG.corn.lengthMax);
+    }
+    for (let i = 1; i < plan.corn.length; i++) {
+      expect(plan.corn[i].start - plan.corn[i - 1].end).toBeGreaterThanOrEqual(CONFIG.corn.gapMin);
+    }
+  });
+});
+
+describe('cornCover', () => {
+  const corn = [{ start: 100, end: 200 }];
+  it('is 0 outside, 1 deep inside and fades at the edges', () => {
+    expect(cornCover(corn, 50)).toBe(0);
+    expect(cornCover(corn, 150)).toBe(1);
+    expect(cornCover(corn, 103)).toBeCloseTo(0.5);
+    expect(cornCover(corn, 250)).toBe(0);
+  });
+});
+
+describe('vaultProfile', () => {
+  it('lifts and slows the runner mid-vault and lands at full speed', () => {
+    expect(vaultProfile(0)).toEqual({ lift: 0, speed: 1 });
+    const mid = vaultProfile(0.42);
+    expect(mid.lift).toBeGreaterThan(0.9);
+    expect(mid.speed).toBeCloseTo(CONFIG.fences.vaultSpeedFactor, 1);
+    expect(vaultProfile(1).speed).toBeCloseTo(1);
+    expect(vaultProfile(1).lift).toBeCloseTo(0);
   });
 });

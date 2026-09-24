@@ -68,21 +68,20 @@ function makeTuftGeometry(rand: () => number): THREE.BufferGeometry {
   return geo;
 }
 
-/** Shared uniforms so every tile sways with the same wind. */
+/** Shared uniforms so every tile (wheat and corn) sways with the same wind. */
 export const windUniforms = {
   uTime: { value: 0 },
   uPlayer: { value: new THREE.Vector2() },
   uWindDir: { value: new THREE.Vector2(0.8, -0.6).normalize() },
-  uHeight: { value: CONFIG.wheat.height },
 };
 
 /**
  * Bends vertices in world space: gusty wind that rolls across the field plus stalks
  * parting around the player. Height-weighted so roots stay planted.
  */
-function applyWind(material: THREE.Material): void {
+export function applyWind(material: THREE.Material, height: number, partRadius = 1.8): void {
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, windUniforms);
+    Object.assign(shader.uniforms, windUniforms, { uHeight: { value: height }, uPartRadius: { value: partRadius } });
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -90,7 +89,8 @@ function applyWind(material: THREE.Material): void {
 uniform float uTime;
 uniform vec2 uPlayer;
 uniform vec2 uWindDir;
-uniform float uHeight;`,
+uniform float uHeight;
+uniform float uPartRadius;`,
       )
       .replace(
         '#include <project_vertex>',
@@ -112,7 +112,7 @@ sway += vec2( sin( uTime * 3.3 + rootXZ.y * 2.1 ), cos( uTime * 2.9 + rootXZ.x *
 // Stalks part around the runner.
 vec2 away = rootXZ - uPlayer;
 float d = length( away );
-sway += ( away / max( d, 0.001 ) ) * smoothstep( 1.8, 0.2, d ) * 0.7;
+sway += ( away / max( d, 0.001 ) ) * smoothstep( uPartRadius, 0.2, d ) * 0.7;
 worldPos.xz += sway * bend;
 worldPos.y -= dot( sway, sway ) * bend * 0.35;
 mvPosition = viewMatrix * worldPos;
@@ -134,12 +134,14 @@ export class WheatField {
   private nextStartZ: number = CONFIG.wheat.tileLength;
   private readonly dummy = new THREE.Object3D();
   private readonly tint = new THREE.Color();
+  /** Returns true for distances covered by corn, where the wheat is left out. */
+  isCorn: (distance: number) => boolean = () => false;
 
   constructor(scene: THREE.Scene, density: number) {
     const cfg = CONFIG.wheat;
     const geo = makeTuftGeometry(mulberry32(5));
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-    applyWind(mat);
+    applyWind(mat, cfg.height);
     const count = Math.round(cfg.tuftsPerTile * density);
     for (let i = 0; i < cfg.tileCount; i++) {
       const mesh = new THREE.InstancedMesh(geo, mat, count);
@@ -161,9 +163,10 @@ export class WheatField {
       // Bias density towards the lane so the runner is always wading through it.
       const u = r() * 2 - 1;
       const x = Math.sign(u) * Math.pow(Math.abs(u), 1.25) * halfWidth;
-      this.dummy.position.set(x, 0, (r() - 0.5) * tileLength);
+      const z = (r() - 0.5) * tileLength;
+      this.dummy.position.set(x, 0, z);
       this.dummy.rotation.set(0, r() * Math.PI * 2, 0);
-      const s = 0.8 + r() * 0.45;
+      const s = this.isCorn(-(tile.mesh.position.z + z)) ? 0 : 0.8 + r() * 0.45;
       this.dummy.scale.set(s, s * (0.85 + r() * 0.3), s);
       this.dummy.updateMatrix();
       tile.mesh.setMatrixAt(i, this.dummy.matrix);

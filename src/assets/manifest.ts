@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import generated from '../../art/higgsfield-assets.json';
+import type { WeaponId } from '../game/weapons';
 
 /**
  * Slots for generated art (Higgsfield). Every slot is optional: when it is empty, or
@@ -59,10 +60,23 @@ export const ASSETS = {
   trees: [generatedSlot('tree-oak', 7), generatedSlot('tree-cottonwood', 8)] as ModelSlot[],
   scarecrow: generatedSlot('scarecrow', 2.6) as ModelSlot | undefined,
   /**
-   * First-person hand + pistol. `height` here is the model's longest side in meters;
-   * the generated mesh has the barrel along -X (checked in a render), so yaw it to face -Z.
+   * First-person hand + weapon. `height` here is the model's longest side in meters;
+   * the generated meshes have the barrel along -X (checked in a render), so yaw them to face -Z.
    */
-  weapon: generatedSlot('viewmodel-pistol', 0.34, -Math.PI / 2) as ModelSlot | undefined,
+  weapons: {
+    pistol: generatedSlot('viewmodel-pistol', 0.34, -Math.PI / 2),
+    shotgun: generatedSlot('viewmodel-shotgun', 0.72, -Math.PI / 2),
+    rifle: generatedSlot('viewmodel-rifle', 0.8, -Math.PI / 2),
+    smg: generatedSlot('viewmodel-smg', 0.42, -Math.PI / 2),
+  } as Partial<Record<WeaponId, ModelSlot>>,
+  /** Weapons lying in the field (longest side in meters). */
+  pickups: {
+    shotgun: generatedSlot('pickup-shotgun', 1.0),
+    rifle: generatedSlot('pickup-rifle', 1.05),
+    smg: generatedSlot('pickup-smg', 0.6),
+  } as Partial<Record<WeaponId, ModelSlot>>,
+  /** One section of broken fence, rails along X. */
+  fence: generatedSlot('fence-broken', 1.35) as ModelSlot | undefined,
 };
 
 export type TextureKey = keyof typeof ASSETS.textures;
@@ -83,7 +97,9 @@ export interface LoadedAssets {
   zombies: LoadedZombie[];
   trees: LoadedModel[];
   scarecrow?: LoadedModel;
-  weapon?: LoadedModel;
+  weapons: Partial<Record<WeaponId, LoadedModel>>;
+  pickups: Partial<Record<WeaponId, LoadedModel>>;
+  fence?: LoadedModel;
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -148,9 +164,20 @@ async function loadModel(slot: ModelSlot, fit: 'height' | 'longest' = 'height'):
   }
 }
 
+async function loadModelMap(
+  slots: Partial<Record<WeaponId, ModelSlot>>,
+): Promise<Partial<Record<WeaponId, LoadedModel>>> {
+  const entries = await Promise.all(
+    (Object.entries(slots) as [WeaponId, ModelSlot][]).map(async ([id, slot]) => [id, await loadModel(slot, 'longest')] as const),
+  );
+  const out: Partial<Record<WeaponId, LoadedModel>> = {};
+  for (const [id, model] of entries) if (model) out[id] = model;
+  return out;
+}
+
 export async function loadAssets(): Promise<LoadedAssets> {
   const textureEntries = Object.entries(ASSETS.textures) as [TextureKey, TextureSlot][];
-  const [textureList, zombies, trees, scarecrow, weapon] = await Promise.all([
+  const [textureList, zombies, trees, scarecrow, weapons, pickups, fence] = await Promise.all([
     Promise.all(textureEntries.map(async ([key, slot]) => [key, await loadTexture(slot)] as const)),
     Promise.all(ASSETS.zombies.map(async (slot) => {
       const model = await loadModel(slot);
@@ -158,7 +185,9 @@ export async function loadAssets(): Promise<LoadedAssets> {
     })),
     Promise.all(ASSETS.trees.map((slot) => loadModel(slot))),
     ASSETS.scarecrow ? loadModel(ASSETS.scarecrow) : Promise.resolve(undefined),
-    ASSETS.weapon ? loadModel(ASSETS.weapon, 'longest') : Promise.resolve(undefined),
+    loadModelMap(ASSETS.weapons),
+    loadModelMap(ASSETS.pickups),
+    ASSETS.fence ? loadModel(ASSETS.fence) : Promise.resolve(undefined),
   ]);
   const textures: LoadedTextures = {};
   for (const [key, tex] of textureList) if (tex) textures[key] = tex;
@@ -167,6 +196,8 @@ export async function loadAssets(): Promise<LoadedAssets> {
     zombies: zombies.filter((z): z is LoadedZombie => z !== undefined),
     trees: trees.filter((t): t is LoadedModel => t !== undefined),
     scarecrow,
-    weapon,
+    weapons,
+    pickups,
+    fence,
   };
 }

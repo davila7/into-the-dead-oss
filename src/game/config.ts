@@ -14,11 +14,47 @@ export const CONFIG = {
     grabRadius: 0.9,
   },
   gun: {
-    magazine: 6,
-    reloadTime: 1.6,
-    fireCooldown: 0.28,
+    /** Body hits a zombie takes from a 1-damage bullet; headshots always kill. */
     bodyHealth: 2,
     range: 60,
+  },
+  /** Course events, all in meters of distance run. */
+  fences: {
+    first: 180,
+    gapMin: 230,
+    gapMax: 400,
+    /** How long the vault takes and how slow the runner is while climbing. */
+    vaultTime: 0.95,
+    vaultSpeedFactor: 0.3,
+    vaultHeight: 0.75,
+    halfWidth: 13,
+    height: 1.35,
+  },
+  corn: {
+    first: 420,
+    lengthMin: 90,
+    lengthMax: 140,
+    gapMin: 520,
+    gapMax: 780,
+    height: 2.7,
+    tileLength: 20,
+    tileCount: 5,
+    halfWidth: 30,
+    /** Stalks per tile at density 1. */
+    stalksPerTile: 2600,
+    fogDensity: 0.085,
+  },
+  pickups: {
+    first: 260,
+    gapMin: 320,
+    gapMax: 480,
+    /** Pickups sit off the running line so the player has to steer to them. */
+    offsetMin: 3,
+    offsetMax: 7.5,
+    radius: 1.4,
+    /** Seconds (real time) to decide before the offer lapses; the game runs slowed meanwhile. */
+    decisionTime: 6,
+    decisionTimeScale: 0.15,
   },
   zombies: {
     spawnAheadMin: 45,
