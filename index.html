@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Into the Dead OSS</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="stat top-left"><span id="hud-distance">0 m</span></div>
+      <div class="stat top-right"><span class="skull">☠</span> <span id="hud-kills">0</span></div>
+      <div class="bottom-right">
+        <div id="hud-reload" hidden>
+          <span>RELOADING</span>
+          <div class="bar"><div id="hud-reload-bar"></div></div>
+        </div>
+        <div id="hud-ammo"></div>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="damage"></div>
+
+    <button id="steer-left" class="steer" aria-label="Steer left">◀</button>
+    <button id="steer-right" class="steer" aria-label="Steer right">▶</button>
+
+    <section id="screen-menu" class="screen">
+      <h1>INTO THE DEAD</h1>
+      <p class="tag">Keep running. Keep shooting. Don't get caught.</p>
+      <button id="start-btn">Start</button>
+      <ul class="controls">
+        <li><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> steer</li>
+        <li><kbd>Click</kbd> / <kbd>Space</kbd> shoot at the crosshair</li>
+        <li><kbd>R</kbd> reload · <kbd>P</kbd> pause</li>
+        <li>Headshots kill instantly</li>
+      </ul>
+    </section>
+
+    <section id="screen-paused" class="screen" hidden>
+      <h1>PAUSED</h1>
+      <p class="tag">Press <kbd>P</kbd> to continue</p>
+    </section>
+
+    <section id="screen-over" class="screen" hidden>
+      <h1>YOU DIED</h1>
+      <div id="over-stats"></div>
+      <button id="retry-btn">Run again</button>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
