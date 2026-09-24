@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulletCamDue, flightTime } from './BulletCam';
+import { bulletCamDue, bulletCamPhase, entryOffset, flightTime } from './BulletCam';
 import { CONFIG } from './config';
 
 const cfg = CONFIG.bulletCam;
@@ -27,5 +27,24 @@ describe('flightTime', () => {
     expect(flightTime(0)).toBe(cfg.flightMin);
     expect(flightTime(1000)).toBe(cfg.flightMax);
     expect(flightTime(22)).toBeGreaterThan(flightTime(20));
+  });
+});
+
+describe('bulletCamPhase', () => {
+  it('chases, then shows the entry, then the aftermath, then ends', () => {
+    const f = 3;
+    expect(bulletCamPhase(1, f)?.phase).toBe('flight');
+    expect(bulletCamPhase(f + 0.1, f)?.phase).toBe('entry');
+    expect(bulletCamPhase(f + cfg.entryTime + 0.1, f)?.phase).toBe('after');
+    expect(bulletCamPhase(f + cfg.entryTime + cfg.impactTime + 0.01, f)).toBeNull();
+  });
+});
+
+describe('entryOffset', () => {
+  it('creeps up to the head, reaches it at entryHit, and sinks entryDepth in', () => {
+    expect(entryOffset(0)).toBeCloseTo(-cfg.entryLead);
+    expect(entryOffset(cfg.entryHit)).toBeCloseTo(0);
+    expect(entryOffset(1)).toBeCloseTo(cfg.entryDepth);
+    expect(entryOffset(0.3)).toBeGreaterThan(entryOffset(0.2));
   });
 });
