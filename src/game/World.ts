@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { LoadedAssets, LoadedModel } from '../assets/manifest';
 import { CONFIG } from './config';
-import { mulberry32 } from './logic';
+import { mulberry32, wrapAround } from './logic';
 
 /** Dark ploughed soil with straw litter, used until a generated texture is provided. */
 function makeGroundTexture(): THREE.Texture {
@@ -134,24 +134,26 @@ export class World {
       props.push(crow);
       group.add(...props);
       const tile: Tile = { group, props, startZ: 0 };
-      this.placeTile(tile);
+      this.placeTile(tile, 0);
       this.tiles.push(tile);
       scene.add(group);
     }
   }
 
-  private placeTile(tile: Tile): void {
+  private placeTile(tile: Tile, playerX: number): void {
     const len = CONFIG.world.tileLength;
+    const { propHalfWidth, propClearance } = CONFIG.world;
     tile.startZ = this.nextStartZ;
     this.nextStartZ -= len;
     tile.group.position.set(0, 0, tile.startZ - len / 2);
-    const laneEdge = CONFIG.player.laneHalfWidth + 2.5;
     for (const prop of tile.props) {
       const r = this.rand;
-      const side = r() < 0.5 ? -1 : 1;
       const isCrow = prop.userData.scarecrow === true;
       prop.visible = !isCrow || r() < CONFIG.world.scarecrowChance;
-      prop.position.set(side * (laneEdge + r() * (isCrow ? 6 : 30)), 0, (r() - 0.5) * len);
+      // Anywhere across the field, but not right on the runner's current line.
+      const side = r() < 0.5 ? -1 : 1;
+      const x = playerX + side * (propClearance + r() * (propHalfWidth - propClearance));
+      prop.position.set(x, 0, (r() - 0.5) * len);
       prop.rotation.y = isCrow ? (r() - 0.5) * 0.8 : r() * Math.PI * 2;
       const s = isCrow ? 1 : 0.8 + r() * 0.7;
       prop.scale.setScalar(s);
@@ -166,13 +168,16 @@ export class World {
       map.offset.set((player.x / 240) * map.repeat.x, (-player.z / 240) * map.repeat.y);
     }
     const len = CONFIG.world.tileLength;
+    const half = CONFIG.world.propHalfWidth;
     for (const tile of this.tiles) {
-      if (tile.startZ - len > player.z + len) this.placeTile(tile);
+      if (tile.startZ - len > player.z + len) this.placeTile(tile, player.x);
+      // Props wrap sideways around the runner, out in the fog, so the field never ends.
+      for (const prop of tile.props) prop.position.x = wrapAround(prop.position.x, player.x, half);
     }
   }
 
   reset(): void {
     this.nextStartZ = CONFIG.world.tileLength;
-    for (const tile of this.tiles) this.placeTile(tile);
+    for (const tile of this.tiles) this.placeTile(tile, 0);
   }
 }

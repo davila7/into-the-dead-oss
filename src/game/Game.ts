@@ -8,7 +8,7 @@ import { Effects } from './Effects';
 import { Hud, type RunStats } from './Hud';
 import { Input } from './Input';
 import type { HitPart } from './logic';
-import { cornCover, mulberry32, planCourse, spawnInterval } from './logic';
+import { cornCover, maxAlive, mulberry32, packFor, planCourse, runnerChance, spawnInterval, zombieSpeed } from './logic';
 import { Player } from './Player';
 import { Sfx } from './Sfx';
 import { PICKUP_WEAPONS, WEAPONS, type WeaponId } from './weapons';
@@ -183,12 +183,15 @@ export class Game {
 
   private spawnZombie(ahead?: number): void {
     const cfg = CONFIG.zombies;
-    if (this.zombies.filter((z) => z.alive).length >= cfg.maxAlive) return;
+    const distance = this.player.distance;
+    if (this.zombies.filter((z) => z.alive).length >= maxAlive(distance)) return;
     const dist = ahead ?? cfg.spawnAheadMin + Math.random() * (cfg.spawnAheadMax - cfg.spawnAheadMin);
-    const x = (Math.random() * 2 - 1) * cfg.spawnHalfWidth;
+    const x = this.player.position.x + (Math.random() * 2 - 1) * cfg.spawnHalfWidth;
     const models = this.assets.zombies;
     const model = models.length > 0 ? models[Math.floor(Math.random() * models.length)] : undefined;
-    const zombie = new Zombie(x, this.player.position.z - dist, model);
+    const runner = Math.random() < runnerChance(distance);
+    const speed = zombieSpeed(distance, Math.random(), runner);
+    const zombie = new Zombie(x, this.player.position.z - dist, speed, model);
     this.zombies.push(zombie);
     this.scene.add(zombie.root);
   }
@@ -263,8 +266,9 @@ export class Game {
     if (this.spawnTimer <= 0) {
       this.spawnTimer = spawnInterval(player.distance) * (0.6 + Math.random() * 0.8);
       this.spawnZombie();
-      // Occasional small pack.
-      if (Math.random() < 0.15) for (let i = 0; i < 2; i++) this.spawnZombie();
+      // Packs get more frequent and bigger the further the run goes.
+      const pack = packFor(player.distance);
+      if (Math.random() < pack.chance) for (let i = 0; i < pack.size; i++) this.spawnZombie();
     }
 
     let grabbed = false;
@@ -275,7 +279,9 @@ export class Game {
       // Zombies clamber over the fence slowly too.
       const slow = fence !== null && Math.abs(z.position.z + fence) < 0.9 ? 0.3 : 1;
       if (z.update(dt, feet, slow)) grabbed = true;
-      if (z.state === 'dead' || z.position.z > player.position.z + CONFIG.zombies.despawnBehind) {
+      const behind = z.position.z > player.position.z + CONFIG.zombies.despawnBehind;
+      const leftBehind = Math.abs(z.position.x - player.position.x) > CONFIG.zombies.despawnSide;
+      if (z.state === 'dead' || behind || leftBehind) {
         this.scene.remove(z.root);
         this.zombies.splice(i, 1);
       }

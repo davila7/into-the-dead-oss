@@ -26,9 +26,9 @@ export class Zombie {
   /** Set for the frame in which the zombie starts its lunge. */
   startedLunge = false;
 
-  constructor(x: number, z: number, model?: LoadedZombie) {
-    const cfg = CONFIG.zombies;
-    this.speed = cfg.walkSpeedMin + Math.random() * (cfg.walkSpeedMax - cfg.walkSpeedMin);
+  /** `speed` in m/s; runners come in well above walking pace (see `zombieSpeed`). */
+  constructor(x: number, z: number, speed: number, model?: LoadedZombie) {
+    this.speed = speed;
     this.body = model ? new ModelBody(this, model) : new PrimitiveBody(this);
     this.root.add(this.body.object);
     this.root.rotation.order = 'YXZ';
@@ -66,7 +66,7 @@ export class Zombie {
     }
 
     const lunging = this.state === 'lunging';
-    const speed = (lunging ? cfg.lungeSpeed : this.speed) * (this.flinch > 0 ? 0.2 : 1) * slow;
+    const speed = (lunging ? Math.max(cfg.lungeSpeed, this.speed * 1.15) : this.speed) * (this.flinch > 0 ? 0.2 : 1) * slow;
     const next = stepTowards(p.x, p.z, player.x, player.z, speed, dt);
     p.x = next.x;
     p.z = next.z;

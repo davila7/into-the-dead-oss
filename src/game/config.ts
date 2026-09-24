@@ -8,7 +8,6 @@ export const CONFIG = {
     /** Extra forward speed gained per meter travelled. */
     speedPerMeter: 0.004,
     strafeSpeed: 7,
-    laneHalfWidth: 9,
     eyeHeight: 1.7,
     /** A zombie closer than this grabs the player. */
     grabRadius: 0.9,
@@ -27,7 +26,8 @@ export const CONFIG = {
     vaultTime: 0.95,
     vaultSpeedFactor: 0.3,
     vaultHeight: 0.75,
-    halfWidth: 13,
+    /** Rows are this wide and follow the runner sideways, so there is no way round. */
+    halfWidth: 39,
     height: 1.35,
   },
   corn: {
@@ -39,6 +39,7 @@ export const CONFIG = {
     height: 2.7,
     tileLength: 20,
     tileCount: 5,
+    /** Stalks wrap sideways around the runner within this half-width. */
     halfWidth: 30,
     /** Stalks per tile at density 1. */
     stalksPerTile: 2600,
@@ -59,28 +60,53 @@ export const CONFIG = {
   zombies: {
     spawnAheadMin: 45,
     spawnAheadMax: 75,
-    spawnHalfWidth: 14,
+    /** Spawns are spread this far either side of the runner (not of a fixed lane). */
+    spawnHalfWidth: 16,
+    /** Zombies further than this sideways from the runner are dropped. */
+    despawnSide: 60,
     baseInterval: 1.4,
-    minInterval: 0.45,
-    intervalDecayPerMeter: 0.0012,
+    minInterval: 0.22,
+    /** Meters over which the spawn interval halves its distance to the minimum (then keeps shrinking). */
+    intervalHalfDistance: 500,
     walkSpeedMin: 0.8,
     walkSpeedMax: 1.8,
     lungeDistance: 3.2,
     lungeSpeed: 3.6,
     despawnBehind: 8,
-    maxAlive: 40,
+    maxAliveStart: 40,
+    maxAliveEnd: 75,
+  },
+  /** How the run escalates with distance. `ramp` is where it reaches full strength. */
+  difficulty: {
+    ramp: 3000,
+    /** Walkers get up to this much faster at full difficulty. */
+    walkSpeedBonus: 0.8,
+    packChanceStart: 0.15,
+    packChanceEnd: 0.5,
+    packSizeStart: 2,
+    packSizeEnd: 5,
+    /** Runners: fast zombies that sprint at the player. */
+    runnerFrom: 250,
+    runnerChanceMax: 0.35,
+    runnerSpeedMin: 3.6,
+    runnerSpeedMax: 5,
   },
   world: {
     tileLength: 40,
     tileCount: 4,
     treesPerTile: 3,
     scarecrowChance: 0.35,
+    /** Props wrap sideways within this distance of the runner. */
+    propHalfWidth: 55,
+    /** Freshly placed props keep this far off the runner's current line. */
+    propClearance: 4,
   },
   wheat: {
     height: 0.95,
     tileLength: 30,
     tileCount: 4,
-    halfWidth: 34,
+    /** Tufts wrap sideways around the runner within this half-width. */
+    halfWidth: 30,
     /** Tufts of 3 stalks per tile at density 1 (see ?quality=low|high). */
     tuftsPerTile: 5200,
   },

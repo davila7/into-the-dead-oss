@@ -22,10 +22,50 @@ export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-/** Seconds between zombie spawns; shrinks the further the player gets. */
+/** Maps x into [center - half, center + half), wrapping around (period 2 * half). */
+export function wrapAround(x: number, center: number, half: number): number {
+  const period = 2 * half;
+  const rel = x - center + half;
+  return center - half + (((rel % period) + period) % period);
+}
+
+/** 0 at the start of a run, rising to 1 at `CONFIG.difficulty.ramp` meters. */
+export function difficulty(distance: number): number {
+  return clamp(distance / CONFIG.difficulty.ramp, 0, 1);
+}
+
+/** Seconds between zombie spawns; keeps shrinking the further the player gets, never below the minimum. */
 export function spawnInterval(distance: number): number {
   const z = CONFIG.zombies;
-  return Math.max(z.minInterval, z.baseInterval - distance * z.intervalDecayPerMeter);
+  return z.minInterval + (z.baseInterval - z.minInterval) / (1 + Math.max(0, distance) / z.intervalHalfDistance);
+}
+
+/** How many zombies may be on their feet at once. */
+export function maxAlive(distance: number): number {
+  const z = CONFIG.zombies;
+  return Math.round(lerp(z.maxAliveStart, z.maxAliveEnd, difficulty(distance)));
+}
+
+/** Chance that a spawn brings a pack, and how many extra zombies it holds. */
+export function packFor(distance: number): { chance: number; size: number } {
+  const d = CONFIG.difficulty;
+  const t = difficulty(distance);
+  return { chance: lerp(d.packChanceStart, d.packChanceEnd, t), size: Math.round(lerp(d.packSizeStart, d.packSizeEnd, t)) };
+}
+
+/** Share of new zombies that are runners: none early on, then rising to the cap. */
+export function runnerChance(distance: number): number {
+  const d = CONFIG.difficulty;
+  if (distance <= d.runnerFrom) return 0;
+  return d.runnerChanceMax * clamp((distance - d.runnerFrom) / (d.ramp - d.runnerFrom), 0, 1);
+}
+
+/** Speed for a new zombie given a uniform roll `u` (0..1) and whether it is a runner. */
+export function zombieSpeed(distance: number, u: number, runner: boolean): number {
+  const d = CONFIG.difficulty;
+  if (runner) return lerp(d.runnerSpeedMin, d.runnerSpeedMax, u);
+  const z = CONFIG.zombies;
+  return lerp(z.walkSpeedMin, z.walkSpeedMax, u) + d.walkSpeedBonus * difficulty(distance);
 }
 
 export function playerSpeed(distance: number): number {
@@ -70,7 +110,7 @@ export interface CoursePlan {
   /** Distances of fences across the lane, ascending. */
   fences: number[];
   corn: CornStretch[];
-  /** Weapon pickups: distance and sideways offset from the lane centre. */
+  /** Weapon pickups: distance and sideways offset from the runner when the pickup comes into view. */
   pickups: { at: number; x: number }[];
 }
 

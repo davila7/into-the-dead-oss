@@ -175,7 +175,8 @@ export class Player {
     // Ease strafe velocity for a less twitchy feel; no steering mid-climb.
     const steerTarget = this.vaulting ? 0 : steer * cfg.strafeSpeed;
     this.strafeVel = lerp(this.strafeVel, steerTarget, clamp(dt * 10, 0, 1));
-    this.position.x = clamp(this.position.x + this.strafeVel * dt, -cfg.laneHalfWidth, cfg.laneHalfWidth);
+    // No side walls: the field wraps around the runner, so they can strafe as far as they like.
+    this.position.x += this.strafeVel * dt;
 
     const lastStep = Math.floor(this.bob / Math.PI);
     if (!this.vaulting) this.bob += dt * this.speed * 1.6;

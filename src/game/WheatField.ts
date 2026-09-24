@@ -78,10 +78,17 @@ export const windUniforms = {
 /**
  * Bends vertices in world space: gusty wind that rolls across the field plus stalks
  * parting around the player. Height-weighted so roots stay planted.
+ *
+ * With `wrapHalfWidth`, instances wrap sideways around the player (period 2 * wrapHalfWidth)
+ * so the field never ends however far they strafe; stalks shrink away near the seam.
  */
-export function applyWind(material: THREE.Material, height: number, partRadius = 1.8): void {
+export function applyWind(material: THREE.Material, height: number, partRadius = 1.8, wrapHalfWidth = 0): void {
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, windUniforms, { uHeight: { value: height }, uPartRadius: { value: partRadius } });
+    Object.assign(shader.uniforms, windUniforms, {
+      uHeight: { value: height },
+      uPartRadius: { value: partRadius },
+      uWrap: { value: wrapHalfWidth },
+    });
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -90,18 +97,28 @@ uniform float uTime;
 uniform vec2 uPlayer;
 uniform vec2 uWindDir;
 uniform float uHeight;
-uniform float uPartRadius;`,
+uniform float uPartRadius;
+uniform float uWrap;`,
       )
       .replace(
         '#include <project_vertex>',
         `vec4 mvPosition = vec4( transformed, 1.0 );
+float wrapShift = 0.0;
 #ifdef USE_INSTANCING
-  mvPosition = instanceMatrix * mvPosition;
   vec2 rootXZ = ( modelMatrix * instanceMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) ).xz;
+  if ( uWrap > 0.0 ) {
+    float rel = mod( rootXZ.x - uPlayer.x + uWrap, 2.0 * uWrap ) - uWrap;
+    wrapShift = uPlayer.x + rel - rootXZ.x;
+    rootXZ.x += wrapShift;
+    // Shrink towards the root near the seam so nothing pops in or out.
+    mvPosition.xyz *= smoothstep( uWrap, uWrap * 0.75, abs( rel ) );
+  }
+  mvPosition = instanceMatrix * mvPosition;
 #else
   vec2 rootXZ = ( modelMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) ).xz;
 #endif
 vec4 worldPos = modelMatrix * mvPosition;
+worldPos.x += wrapShift;
 float h = clamp( position.y / uHeight, 0.0, 1.3 );
 float bend = h * h;
 // Gust fronts travel along the wind direction.
@@ -141,7 +158,7 @@ export class WheatField {
     const cfg = CONFIG.wheat;
     const geo = makeTuftGeometry(mulberry32(5));
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-    applyWind(mat, cfg.height);
+    applyWind(mat, cfg.height, 1.8, cfg.halfWidth);
     const count = Math.round(cfg.tuftsPerTile * density);
     for (let i = 0; i < cfg.tileCount; i++) {
       const mesh = new THREE.InstancedMesh(geo, mat, count);
@@ -160,9 +177,8 @@ export class WheatField {
     tile.mesh.position.set(0, 0, tile.startZ - tileLength / 2);
     const r = this.rand;
     for (let i = 0; i < tile.mesh.count; i++) {
-      // Bias density towards the lane so the runner is always wading through it.
-      const u = r() * 2 - 1;
-      const x = Math.sign(u) * Math.pow(Math.abs(u), 1.25) * halfWidth;
+      // Spread evenly: the shader wraps each tuft sideways around the runner.
+      const x = (r() * 2 - 1) * halfWidth;
       const z = (r() - 0.5) * tileLength;
       this.dummy.position.set(x, 0, z);
       this.dummy.rotation.set(0, r() * Math.PI * 2, 0);

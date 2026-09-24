@@ -41,7 +41,14 @@ function makeFenceSection(rand: () => number): THREE.Group {
   return g;
 }
 
-/** A row of broken fence sections spanning the whole running lane. */
+/** Sections in the repeating tilt pattern; the row slides sideways by whole patterns. */
+const FENCE_PATTERN = 4;
+
+/**
+ * A row of broken fence sections wide enough to fill the view. The sag and lean repeat every
+ * FENCE_PATTERN sections, so the row can follow the runner sideways in whole-pattern steps
+ * without anything visibly jumping. `userData.period` is that step in meters.
+ */
 function makeFenceRow(assets: LoadedAssets, rand: () => number): THREE.Group {
   const row = new THREE.Group();
   const model = assets.fence;
@@ -50,15 +57,25 @@ function makeFenceRow(assets: LoadedAssets, rand: () => number): THREE.Group {
     const size = new THREE.Box3().setFromObject(model.scene).getSize(new THREE.Vector3());
     width = Math.max(1, size.x * 0.96);
   }
-  const half = CONFIG.fences.halfWidth;
-  for (let x = -half; x < half; x += width) {
-    const section = model ? model.scene.clone(true) : makeFenceSection(rand);
-    section.position.set(x + width / 2, 0, (rand() - 0.5) * 0.25);
+  const pattern = Array.from({ length: FENCE_PATTERN }, () => ({
+    z: (rand() - 0.5) * 0.25,
+    y: -rand() * 0.08,
     // Sagging, leaning, not quite in line.
-    section.rotation.set((rand() - 0.5) * 0.12, (rand() - 0.5) * 0.12 + (rand() < 0.5 ? 0 : Math.PI), (rand() - 0.5) * 0.06);
-    section.position.y = -rand() * 0.08;
+    rx: (rand() - 0.5) * 0.12,
+    ry: (rand() - 0.5) * 0.12 + (rand() < 0.5 ? 0 : Math.PI),
+    rz: (rand() - 0.5) * 0.06,
+    look: model ? undefined : makeFenceSection(rand),
+  }));
+  const count = Math.ceil((2 * CONFIG.fences.halfWidth) / width / FENCE_PATTERN) * FENCE_PATTERN;
+  const start = (-count * width) / 2;
+  for (let i = 0; i < count; i++) {
+    const p = pattern[i % FENCE_PATTERN];
+    const section = model ? model.scene.clone(true) : p.look!.clone(true);
+    section.position.set(start + i * width + width / 2, p.y, p.z);
+    section.rotation.set(p.rx, p.ry, p.rz);
     row.add(section);
   }
+  row.userData.period = width * FENCE_PATTERN;
   return row;
 }
 
@@ -158,6 +175,11 @@ export class Course {
     return this.fenceRow ? this.fenceAt : null;
   }
 
+  private fenceX(row: THREE.Group, playerX: number): number {
+    const period = row.userData.period as number;
+    return Math.round(playerX / period) * period;
+  }
+
   reset(plan: CoursePlan): void {
     this.plan = plan;
     this.nextFence = 0;
@@ -189,7 +211,7 @@ export class Course {
       const at = this.plan.fences[this.nextFence];
       if (at - distance < SHOW_AHEAD) {
         this.fenceRow = this.fenceRows[this.nextFence % this.fenceRows.length];
-        this.fenceRow.position.set(0, 0, -at);
+        this.fenceRow.position.set(this.fenceX(this.fenceRow, playerX), 0, -at);
         this.fenceRow.visible = true;
         this.fenceAt = at;
         this.vaulted = false;
@@ -197,6 +219,8 @@ export class Course {
       }
     }
     if (this.fenceRow) {
+      // No way round: the row keeps itself centred on the runner.
+      this.fenceRow.position.x = this.fenceX(this.fenceRow, playerX);
       if (!this.vaulted && distance >= this.fenceAt - 1.1) {
         this.vaulted = true;
         event = 'vault';
@@ -213,11 +237,12 @@ export class Course {
       if (next.at - distance < SHOW_AHEAD) {
         this.nextPickup += 1;
         const weapon = this.chooseWeapon();
-        this.pickup = { weapon, at: next.at, x: next.x };
+        // Offsets are relative to wherever the runner is when it comes into view.
+        this.pickup = { weapon, at: next.at, x: playerX + next.x };
         this.pickupHolder.clear();
         const model = this.pickupModels.get(weapon);
         if (model) this.pickupHolder.add(model);
-        this.pickupRoot.position.set(next.x, 0, -next.at);
+        this.pickupRoot.position.set(this.pickup.x, 0, -next.at);
         this.pickupRoot.visible = true;
       }
     }
