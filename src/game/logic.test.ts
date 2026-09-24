@@ -3,10 +3,13 @@ import { CONFIG } from './config';
 import {
   applyHit,
   cornCover,
+  cricketLevel,
+  levelAt,
   maxAlive,
   mulberry32,
   packFor,
   planCourse,
+  planHorrors,
   playerSpeed,
   runnerChance,
   spawnInterval,
@@ -33,6 +36,14 @@ describe('applyHit', () => {
 
   it('applies weapon damage to body shots', () => {
     expect(applyHit(CONFIG.gun.bodyHealth, 'body', CONFIG.gun.bodyHealth).killed).toBe(true);
+  });
+});
+
+describe('applyHit on tough zombies', () => {
+  it('headshots multiply damage instead of killing outright', () => {
+    const b = CONFIG.horrors.brute;
+    expect(applyHit(b.health, 'head', 1, b.headMultiplier)).toEqual({ health: b.health - b.headMultiplier, killed: false });
+    expect(applyHit(b.headMultiplier, 'head', 1, b.headMultiplier).killed).toBe(true);
   });
 });
 
@@ -170,5 +181,64 @@ describe('vaultProfile', () => {
     expect(mid.speed).toBeCloseTo(CONFIG.fences.vaultSpeedFactor, 1);
     expect(vaultProfile(1).speed).toBeCloseTo(1);
     expect(vaultProfile(1).lift).toBeCloseTo(0);
+  });
+});
+
+describe('levels', () => {
+  it('starts at the first level and climbs with distance', () => {
+    expect(levelAt(0)).toBe(0);
+    const last = CONFIG.levels.length - 1;
+    expect(levelAt(CONFIG.levels[last].from)).toBe(last);
+    expect(levelAt(1e6)).toBe(last);
+    for (let i = 1; i <= last; i++) expect(levelAt(CONFIG.levels[i].from - 0.1)).toBe(i - 1);
+  });
+
+  it('introduces the horrors in order: hanged, crucified, brute, mutant, dogs', () => {
+    const h = CONFIG.horrors;
+    const order = [h.hanged.from, h.crucified.from, h.brute.from, h.mutant.from, h.dogs.from];
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+});
+
+describe('planHorrors', () => {
+  const fences = [500, 900, 1300];
+  const plan = planHorrors(mulberry32(9), 8000, fences);
+  const h = CONFIG.horrors;
+
+  it('holds each horror back until its level', () => {
+    expect(plan.hanged[0].at).toBeGreaterThanOrEqual(h.hanged.from);
+    expect(plan.crucified[0].at).toBeGreaterThanOrEqual(h.crucified.from);
+    expect(plan.brutes[0]).toBeGreaterThanOrEqual(h.brute.from);
+    expect(plan.mutants[0]).toBeGreaterThanOrEqual(h.mutant.from);
+    expect(plan.dogPacks[0].at).toBeGreaterThanOrEqual(h.dogs.from);
+  });
+
+  it('keeps coming, closer together late in the run', () => {
+    const gaps = plan.brutes.slice(1).map((at, i) => at - plan.brutes[i]);
+    expect(plan.brutes.length).toBeGreaterThan(10);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(h.brute.gapMin * (1 - h.gapShrink) - 1e-9);
+    expect(gaps[gaps.length - 1]).toBeLessThanOrEqual(h.brute.gapMax * (1 - h.gapShrink) + 1e-9);
+  });
+
+  it('keeps set pieces away from fences', () => {
+    for (const p of plan.hanged) for (const f of fences) expect(Math.abs(p.at - f)).toBeGreaterThanOrEqual(25);
+    for (const p of plan.crucified) for (const f of fences) expect(Math.abs(p.at - f)).toBeGreaterThanOrEqual(15);
+  });
+
+  it('puts crosses off the running line and packs within size', () => {
+    for (const c of plan.crucified) expect(Math.abs(c.x)).toBeGreaterThanOrEqual(h.crucified.offsetMin);
+    for (const p of plan.hanged) expect(Math.abs(p.x)).toBeLessThanOrEqual(h.hanged.offsetMax);
+    for (const p of plan.dogPacks) {
+      expect(p.size).toBeGreaterThanOrEqual(h.dogs.packMin);
+      expect(p.size).toBeLessThanOrEqual(h.dogs.packMax);
+    }
+  });
+});
+
+describe('cricketLevel', () => {
+  it('is full when nothing is near and hushed up close', () => {
+    expect(cricketLevel(1000)).toBe(1);
+    expect(cricketLevel(0)).toBe(CONFIG.crickets.hushedLevel);
+    expect(cricketLevel(15)).toBeGreaterThan(cricketLevel(8));
   });
 });

@@ -141,6 +141,51 @@
       "model_job": "e6375a6f-aa63-4200-a8ec-9ebcdd013d6d",
       "animation": null,
       "prompt": "3D game asset reference: one section of an old broken farm fence made of rotten, charred, almost black weathered wood: two leaning square posts with three horizontal rails between them, the middle rail snapped in half and hanging down, splintered ends, patches of dark rot and moss, seen straight from the front, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "zombie-brute",
+      "out": "public/assets/models/zombie-brute.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_143528_23cf9fe2-8d1e-41da-94da-240a630ddd1b.glb",
+      "image_job": "3c4c9004-3f28-4fb8-9792-301e552e6c67",
+      "model_job": "23cf9fe2-8d1e-41da-94da-240a630ddd1b",
+      "animation": "Slow_Orc_Walk_inplace (669)",
+      "prompt": "3D game asset reference: a huge obese undead man, enormous sagging belly, massive thick arms, short thick legs, bald head, torn stained sleeveless undershirt, ragged faded denim overalls with one strap broken, muddy boots, pale grey skin, standing in A-pose, full body visible, seen from the front, centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "zombie-mutant",
+      "out": "public/assets/models/zombie-mutant.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_143532_4ca90261-c950-4b5e-b005-26d2188100a8.glb",
+      "image_job": "e39e5458-1a6f-43ac-b5da-a1abd848223e",
+      "model_job": "4ca90261-c950-4b5e-b005-26d2188100a8",
+      "animation": null,
+      "prompt": "3D game asset reference: a large grotesque mutated undead creature that walks on all fours like a dog, long gaunt human-like limbs bent like hind legs, hunched spine with protruding vertebrae, pale grey skin, tattered scraps of clothing, its head split open vertically into two halves like a gaping jaw, standing on four limbs, three-quarter side view facing left, whole body visible, centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "zombie-dog",
+      "out": "public/assets/models/zombie-dog.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_143539_5cb97d03-3db4-40a4-8fbf-e24de2118c29.glb",
+      "image_job": "e8f8825d-19e2-4287-a1cc-49e3185f739c",
+      "model_job": "5cb97d03-3db4-40a4-8fbf-e24de2118c29",
+      "animation": null,
+      "prompt": "3D game asset reference: an undead emaciated dog, gaunt ribs showing, patchy mangy dark fur with bald pale grey skin patches, bared teeth, pale milky eyes, torn ear, standing on all four legs, three-quarter side view facing left, whole body visible, centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "zombie-hanged",
+      "out": "public/assets/models/zombie-hanged.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_143549_9693052d-5807-4e1b-ad94-af4ccc67c701.glb",
+      "image_job": "14700e37-440f-47e9-acf7-f2eabcc80359",
+      "model_job": "9693052d-5807-4e1b-ad94-af4ccc67c701",
+      "animation": null,
+      "prompt": "3D game asset reference: a limp ragdoll-like undead farmer, arms hanging straight down at his sides, head bowed, a coarse burlap sack hood covering his whole head and face tied with twine, ragged dirty plaid shirt and torn trousers, pale grey skin, bare feet with toes pointing down, full body visible, seen from the front, centered. Plain flat light grey background, soft even lighting, no shadows, no text."
+    },
+    {
+      "name": "zombie-crucified",
+      "out": "public/assets/models/zombie-crucified.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_143656_f9178a27-ee87-415d-a345-d8d6194546e7.glb",
+      "image_job": "44142c65-e79d-41e2-bb16-7dd84fd81aeb",
+      "model_job": "f9178a27-ee87-415d-a345-d8d6194546e7",
+      "animation": null,
+      "prompt": "3D game asset reference: a gaunt undead farmer standing in a T-pose with both arms stretched straight out horizontally to the sides, frayed rope tied around both wrists, head slumped to one side, ragged torn plaid shirt open at the chest and torn trousers, pale grey skin, bare feet close together, full body visible, seen from the front, centered. Plain flat light grey background, soft even lighting, no shadows, no text."
     }
   ]
 }

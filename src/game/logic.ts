@@ -73,9 +73,17 @@ export function playerSpeed(distance: number): number {
   return Math.min(p.maxSpeed, p.startSpeed + distance * p.speedPerMeter);
 }
 
-/** Headshots always kill; body shots chip away at health. */
-export function applyHit(health: number, part: HitPart, damage = 1): { health: number; killed: boolean } {
-  const next = part === 'head' ? 0 : health - damage;
+/**
+ * Body shots chip away at health. Headshots always kill, unless `headMultiplier` is finite
+ * (tough zombies), in which case they do that many times the damage.
+ */
+export function applyHit(
+  health: number,
+  part: HitPart,
+  damage = 1,
+  headMultiplier = Infinity,
+): { health: number; killed: boolean } {
+  const next = part === 'head' ? (Number.isFinite(headMultiplier) ? health - damage * headMultiplier : 0) : health - damage;
   return { health: Math.max(0, next), killed: next <= 0 };
 }
 
@@ -167,4 +175,60 @@ export function vaultProfile(t: number): { lift: number; speed: number } {
   // Slowest while scrambling over the top.
   const speed = lerp(1, CONFIG.fences.vaultSpeedFactor, Math.sin(Math.min(1, k * 1.2) * Math.PI) ** 0.5);
   return { lift, speed };
+}
+
+/** Index into `CONFIG.levels` of the level reached at `distance`. */
+export function levelAt(distance: number): number {
+  let level = 0;
+  CONFIG.levels.forEach((l, i) => {
+    if (distance >= l.from) level = i;
+  });
+  return level;
+}
+
+export interface HorrorPlan {
+  /** Hanging bodies: distance and sideways offset from the runner when they come into view. */
+  hanged: { at: number; x: number }[];
+  crucified: { at: number; x: number }[];
+  brutes: number[];
+  mutants: number[];
+  dogPacks: { at: number; size: number }[];
+}
+
+/**
+ * Schedules the horrors from their level onwards, with gaps that shrink with difficulty.
+ * Set pieces slide forward to keep clear of the `busy` distances (fences, pickups).
+ */
+export function planHorrors(rand: () => number, length: number, busy: readonly number[] = []): HorrorPlan {
+  const h = CONFIG.horrors;
+  const series = (from: number, gapMin: number, gapMax: number, clear = 0): number[] => {
+    const out: number[] = [];
+    for (let at = from + rand() * gapMin * 0.5; at < length; ) {
+      while (clear > 0 && busy.some((b) => Math.abs(b - at) < clear)) at += 5;
+      out.push(at);
+      at += gap(rand, gapMin, gapMax) * (1 - h.gapShrink * difficulty(at));
+    }
+    return out;
+  };
+  const side = () => (rand() < 0.5 ? -1 : 1);
+  return {
+    hanged: series(h.hanged.from, h.hanged.gapMin, h.hanged.gapMax, 25).map((at) => ({ at, x: side() * rand() * h.hanged.offsetMax })),
+    crucified: series(h.crucified.from, h.crucified.gapMin, h.crucified.gapMax, 15).map((at) => ({
+      at,
+      x: side() * gap(rand, h.crucified.offsetMin, h.crucified.offsetMax),
+    })),
+    brutes: series(h.brute.from, h.brute.gapMin, h.brute.gapMax),
+    mutants: series(h.mutant.from, h.mutant.gapMin, h.mutant.gapMax),
+    dogPacks: series(h.dogs.from, h.dogs.gapMin, h.dogs.gapMax).map((at) => ({
+      at,
+      size: h.dogs.packMin + Math.floor(rand() * (h.dogs.packMax - h.dogs.packMin + 1)),
+    })),
+  };
+}
+
+/** Cricket volume (0..1): they go quiet as the nearest zombie closes in. */
+export function cricketLevel(nearest: number): number {
+  const c = CONFIG.crickets;
+  const t = clamp((nearest - c.hushNear) / (c.fullAt - c.hushNear), 0, 1);
+  return lerp(c.hushedLevel, 1, t);
 }

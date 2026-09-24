@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import type { LoadedZombie } from '../assets/manifest';
+import type { LoadedModel, LoadedZombie } from '../assets/manifest';
 import { clamp, type HitPart } from './logic';
 
 /** What a zombie looks like. The Zombie class owns movement, health and the fall. */
@@ -63,7 +63,8 @@ export class PrimitiveBody implements ZombieBody {
   private readonly head: THREE.Mesh;
   private phase = Math.random() * Math.PI * 2;
 
-  constructor(owner: unknown) {
+  /** `size` scales the whole body; `girth` widens it on top (the brute). */
+  constructor(owner: unknown, { size = 0.9 + Math.random() * 0.25, girth = 1 }: { size?: number; girth?: number } = {}) {
     const k = getKit();
     const skin = k.skins[Math.floor(Math.random() * k.skins.length)];
     const shirt = k.clothes[Math.floor(Math.random() * k.clothes.length)];
@@ -92,9 +93,14 @@ export class PrimitiveBody implements ZombieBody {
     this.armL.add(part(k.limb, skin, 'body'));
     this.armR.add(part(k.limb, skin, 'body'));
 
+    torso.scale.set(girth, 1, girth * 1.3);
+    this.armL.position.x *= girth;
+    this.armR.position.x *= girth;
+    this.legL.position.x *= girth;
+    this.legR.position.x *= girth;
     this.body.add(torso, this.head, this.armL, this.armR);
     this.object.add(this.body, this.legL, this.legR);
-    this.object.scale.setScalar(0.9 + Math.random() * 0.25);
+    this.object.scale.setScalar(size);
   }
 
   animate(dt: number, speed: number, lunging: boolean, flinch: number): void {
@@ -170,11 +176,13 @@ export class ModelBody implements ZombieBody {
     this.headProxy.scale.setScalar(height * 0.075);
     this.headProxy.position.y = height * 0.92;
     const body = tagHit(new THREE.Mesh(bodyProxyGeo, proxyMaterial), 'body', owner);
-    body.scale.set(height * 0.3, height * 0.8, height * 0.2);
+    const girth = source.slot.girth ?? 1;
+    body.scale.set(height * 0.3 * girth, height * 0.8, height * 0.2 * girth);
     body.position.y = height * 0.42;
     this.object.add(this.headProxy, body);
     this.hitMeshes.push(this.headProxy, body);
     this.object.scale.setScalar(0.94 + Math.random() * 0.12);
+    this.headProxy.scale.multiplyScalar(Math.sqrt(girth));
   }
 
   private findBone(pattern: RegExp): THREE.Object3D | undefined {
@@ -201,5 +209,84 @@ export class ModelBody implements ZombieBody {
     this.action.timeScale = Math.max(0, this.action.timeScale - dt * 6);
     this.mixer.update(dt);
     this.model.rotation.x = THREE.MathUtils.lerp(this.model.rotation.x, 0, clamp(dt * 8, 0, 1));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Four-legged things (mutant, dogs): a static generated mesh driven by a procedural gallop.
+
+const quadKit = {
+  skin: new THREE.MeshLambertMaterial({ color: 0x6d6a60 }),
+  fur: new THREE.MeshLambertMaterial({ color: 0x2b2520 }),
+  eyes: new THREE.MeshBasicMaterial({ color: 0xd8ff6a, fog: false }),
+};
+
+/** Box stand-in for a four-legged thing, `length` long, facing +Z. */
+function makeQuadPlaceholder(length: number, mutant: boolean): THREE.Group {
+  const g = new THREE.Group();
+  const mat = mutant ? quadKit.skin : quadKit.fur;
+  const h = length * 0.55;
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(length * 0.28, h * 0.35, length * 0.62), mat);
+  torso.position.y = h * 0.72;
+  const head = new THREE.Group();
+  head.position.set(0, h * 0.82, length * 0.38);
+  // The mutant's head is split down the middle into two halves.
+  for (const side of mutant ? [-1, 1] : [0]) {
+    const half = new THREE.Mesh(new THREE.BoxGeometry(length * (mutant ? 0.09 : 0.16), h * 0.25, length * 0.22), mat);
+    half.position.x = side * length * 0.07;
+    half.rotation.z = side * 0.45;
+    head.add(half);
+  }
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.02), quadKit.eyes);
+  eye.position.set(0, h * 0.05, length * 0.115);
+  head.add(eye);
+  g.add(torso, head);
+  for (const [x, z] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(length * 0.06, h * 0.6, length * 0.06), mat);
+    leg.position.set(x * length * 0.1, h * 0.3, z * length * 0.24);
+    g.add(leg);
+  }
+  return g;
+}
+
+export class QuadBody implements ZombieBody {
+  readonly object = new THREE.Group();
+  readonly hitMeshes: THREE.Mesh[] = [];
+  private readonly rig = new THREE.Group();
+  private phase = Math.random() * Math.PI * 2;
+  private readonly length: number;
+
+  /** `length` in meters nose to tail; the model is expected to face +Z. */
+  constructor(owner: unknown, length: number, model: LoadedModel | undefined, mutant: boolean) {
+    this.length = length;
+    const look = model ? model.scene.clone(true) : makeQuadPlaceholder(length, mutant);
+    this.rig.add(look);
+    this.object.add(this.rig);
+    const size = new THREE.Box3().setFromObject(look).getSize(new THREE.Vector3());
+    const h = Math.max(0.3, size.y);
+    const body = tagHit(new THREE.Mesh(bodyProxyGeo, proxyMaterial), 'body', owner);
+    body.scale.set(clamp(size.x * 0.8, 0.3, length * 0.4), h * 0.6, length * 0.7);
+    body.position.set(0, h * 0.55, -length * 0.05);
+    const head = tagHit(new THREE.Mesh(headProxyGeo, proxyMaterial), 'head', owner);
+    head.scale.setScalar(Math.max(0.12, length * 0.1));
+    head.position.set(0, h * 0.72, length * 0.4);
+    this.rig.add(body, head);
+    this.hitMeshes.push(body, head);
+    this.object.scale.setScalar(0.92 + Math.random() * 0.16);
+  }
+
+  animate(dt: number, speed: number, lunging: boolean, flinch: number): void {
+    // A bounding gallop: one stride per body length or so.
+    this.phase += dt * (3 + (speed / this.length) * 2.2);
+    const s = Math.sin(this.phase);
+    this.rig.position.y = Math.abs(s) * this.length * 0.06;
+    this.rig.rotation.x = s * 0.12 + (lunging ? 0.2 : 0) - flinch * 1.4;
+    this.rig.rotation.z = Math.sin(this.phase * 0.5) * 0.05;
+  }
+
+  animateDeath(dt: number): void {
+    const k = clamp(dt * 8, 0, 1);
+    this.rig.position.y = THREE.MathUtils.lerp(this.rig.position.y, 0, k);
+    this.rig.rotation.x = THREE.MathUtils.lerp(this.rig.rotation.x, 0, k);
   }
 }

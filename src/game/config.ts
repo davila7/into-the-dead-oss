@@ -1,5 +1,8 @@
 import { Vector3 } from 'three';
 
+/** Distance (m) at which each new horror joins the run; each one starts a level. */
+const LEVEL_FROM = { hanged: 110, crucified: 260, brute: 420, mutant: 600, dogs: 800 } as const;
+
 /** Gameplay tunables. Distances in meters, times in seconds. Forward is -Z. */
 export const CONFIG = {
   player: {
@@ -29,9 +32,9 @@ export const CONFIG = {
   },
   /** Course events, all in meters of distance run. */
   fences: {
-    first: 180,
-    gapMin: 230,
-    gapMax: 400,
+    first: 130,
+    gapMin: 170,
+    gapMax: 280,
     /** How long the vault takes and how slow the runner is while climbing. */
     vaultTime: 0.95,
     vaultSpeedFactor: 0.3,
@@ -41,11 +44,11 @@ export const CONFIG = {
     height: 1.35,
   },
   corn: {
-    first: 420,
-    lengthMin: 90,
-    lengthMax: 140,
-    gapMin: 520,
-    gapMax: 780,
+    first: 300,
+    lengthMin: 70,
+    lengthMax: 110,
+    gapMin: 380,
+    gapMax: 560,
     height: 2.7,
     tileLength: 20,
     tileCount: 5,
@@ -56,9 +59,9 @@ export const CONFIG = {
     fogDensity: 0.085,
   },
   pickups: {
-    first: 260,
-    gapMin: 320,
-    gapMax: 480,
+    first: 60,
+    gapMin: 170,
+    gapMax: 260,
     /** Pickups sit off the running line so the player has to steer to them. */
     offsetMin: 3,
     offsetMax: 7.5,
@@ -77,7 +80,7 @@ export const CONFIG = {
     baseInterval: 1.4,
     minInterval: 0.22,
     /** Meters over which the spawn interval halves its distance to the minimum (then keeps shrinking). */
-    intervalHalfDistance: 500,
+    intervalHalfDistance: 350,
     walkSpeedMin: 0.8,
     walkSpeedMax: 1.8,
     lungeDistance: 3.2,
@@ -88,7 +91,7 @@ export const CONFIG = {
   },
   /** How the run escalates with distance. `ramp` is where it reaches full strength. */
   difficulty: {
-    ramp: 3000,
+    ramp: 1600,
     /** Walkers get up to this much faster at full difficulty. */
     walkSpeedBonus: 0.8,
     packChanceStart: 0.15,
@@ -96,11 +99,42 @@ export const CONFIG = {
     packSizeStart: 2,
     packSizeEnd: 5,
     /** Runners: fast zombies that sprint at the player. */
-    runnerFrom: 250,
+    runnerFrom: 150,
     runnerChanceMax: 0.35,
     runnerSpeedMin: 3.6,
     runnerSpeedMax: 5,
   },
+  /** Levels announced on the HUD as the run reaches them. */
+  levels: [
+    { from: 0, name: 'The field' },
+    { from: LEVEL_FROM.hanged, name: 'Hanged men' },
+    { from: LEVEL_FROM.crucified, name: 'The crucified' },
+    { from: LEVEL_FROM.brute, name: 'The big one' },
+    { from: LEVEL_FROM.mutant, name: 'Mutation' },
+    { from: LEVEL_FROM.dogs, name: 'The pack' },
+  ],
+  /**
+   * Set pieces and special zombies, scheduled along the run from their level onwards.
+   * Gaps shrink by up to `gapShrink` at full difficulty.
+   */
+  horrors: {
+    gapShrink: 0.4,
+    /** How far ahead set pieces are put in place, and special zombies spawn. */
+    showAhead: 95,
+    spawnAhead: 65,
+    /** Bodies hanging from dead trees, hooded, swinging. Pass underneath and they grab you. */
+    hanged: { from: LEVEL_FROM.hanged, gapMin: 70, gapMax: 120, offsetMax: 3.5, grabRadius: 0.75, health: 2 },
+    /** Zombies bound to crosses out in the field, writhing and screaming as you go by. */
+    crucified: { from: LEVEL_FROM.crucified, gapMin: 110, gapMax: 190, offsetMin: 4, offsetMax: 9, screamDistance: 22, health: 3 },
+    /** A huge slow zombie that soaks up bullets; headshots only do `headMultiplier` times damage. */
+    brute: { from: LEVEL_FROM.brute, gapMin: 170, gapMax: 280, health: 12, headMultiplier: 4, speed: 1.3, grabRadius: 1.35 },
+    /** A mutated four-legged thing with a split head, weaving as it gallops in. */
+    mutant: { from: LEVEL_FROM.mutant, gapMin: 150, gapMax: 240, health: 5, headMultiplier: 3, speed: 6.5, weave: 3.5 },
+    /** Fast zombie dogs in packs, the last and hardest stretch. */
+    dogs: { from: LEVEL_FROM.dogs, gapMin: 90, gapMax: 160, packMin: 3, packMax: 5, health: 1, speed: 7.5 },
+  },
+  /** Night ambience: crickets hush when something gets close. */
+  crickets: { hushNear: 5, fullAt: 25, hushedLevel: 0.2 },
   world: {
     tileLength: 40,
     tileCount: 4,

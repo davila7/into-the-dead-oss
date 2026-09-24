@@ -104,6 +104,24 @@ function makeBeam(): THREE.Mesh {
   );
 }
 
+/** A pickup weapon centred on its origin, sized to read from a distance. */
+export function makePickupModel(assets: LoadedAssets, id: WeaponId): THREE.Group {
+  const model = assets.pickups[id];
+  let obj: THREE.Object3D;
+  if (model) {
+    obj = model.scene.clone(true);
+    const box = new THREE.Box3().setFromObject(obj);
+    obj.position.sub(box.getCenter(new THREE.Vector3()));
+  } else {
+    // Placeholder viewmodels are ~0.5 m; scale them up to read at a distance.
+    obj = makePlaceholderGun(id).group;
+    obj.scale.setScalar(1.8);
+  }
+  const holder = new THREE.Group();
+  holder.add(obj);
+  return holder;
+}
+
 export interface Pickup {
   weapon: WeaponId;
   at: number;
@@ -142,22 +160,7 @@ export class Course {
       scene.add(row);
     }
 
-    for (const id of PICKUP_WEAPONS) {
-      const model = assets.pickups[id];
-      let obj: THREE.Object3D;
-      if (model) {
-        obj = model.scene.clone(true);
-        const box = new THREE.Box3().setFromObject(obj);
-        obj.position.sub(box.getCenter(new THREE.Vector3()));
-      } else {
-        // Placeholder viewmodels are ~0.5 m; scale them up to read at a distance.
-        obj = makePlaceholderGun(id).group;
-        obj.scale.setScalar(1.8);
-      }
-      const holder = new THREE.Group();
-      holder.add(obj);
-      this.pickupModels.set(id, holder);
-    }
+    for (const id of PICKUP_WEAPONS) this.pickupModels.set(id, makePickupModel(assets, id));
     const light = new THREE.PointLight(0xffd27a, 3, 7, 2);
     light.position.y = 0.6;
     this.pickupHolder.position.y = 0.95;

@@ -5,16 +5,31 @@ import { CONFIG } from './config';
 import { CornField } from './CornField';
 import { Course } from './Course';
 import { Effects } from './Effects';
+import { Horrors } from './Horrors';
 import { Hud, type RunStats } from './Hud';
 import { Input } from './Input';
 import type { HitPart } from './logic';
-import { cornCover, maxAlive, mulberry32, packFor, planCourse, runnerChance, spawnInterval, zombieSpeed } from './logic';
+import {
+  cornCover,
+  cricketLevel,
+  levelAt,
+  maxAlive,
+  mulberry32,
+  packFor,
+  planCourse,
+  planHorrors,
+  runnerChance,
+  spawnInterval,
+  zombieSpeed,
+} from './logic';
 import { Player } from './Player';
 import { Sfx } from './Sfx';
 import { PICKUP_WEAPONS, WEAPONS, type WeaponId } from './weapons';
+import { WeaponPreview } from './WeaponPreview';
 import { WheatField } from './WheatField';
 import { World } from './World';
-import { Zombie } from './Zombie';
+import { type EnemyKind, type Shootable, Zombie } from './Zombie';
+import { ModelBody, PrimitiveBody, QuadBody, type ZombieBody } from './ZombieBody';
 
 /** Planned course length; far beyond any realistic run. */
 const COURSE_LENGTH = 30000;
@@ -49,7 +64,10 @@ export class Game {
   private readonly wheat: WheatField;
   private readonly corn: CornField;
   private readonly course: Course;
+  private readonly horrors: Horrors;
+  private level = -1;
   private offer: Offer | null = null;
+  private readonly preview: WeaponPreview;
   private cover = 0;
   private rustleTimer = 0;
   private readonly atmosphere: Atmosphere;
@@ -81,6 +99,8 @@ export class Game {
     this.wheat = new WheatField(this.scene, density);
     this.corn = new CornField(this.scene, density);
     this.course = new Course(this.scene, assets, () => this.pickupWeapon());
+    this.horrors = new Horrors(this.scene, assets);
+    this.preview = new WeaponPreview(this.hud.offerPreview, assets);
     this.wheat.isCorn = (d) => this.course.corn.some((c) => d > c.start - 1 && d < c.end + 1);
     this.player = new Player(window.innerWidth / window.innerHeight, assets.weapons);
     this.scene.add(this.player.camera);
@@ -119,8 +139,11 @@ export class Game {
     this.offer = null;
     this.hud.hideOffer();
     // A fresh layout of fences, corn and pickups every run.
-    const plan = planCourse(mulberry32((Math.random() * 2 ** 32) >>> 0), COURSE_LENGTH);
+    const rand = mulberry32((Math.random() * 2 ** 32) >>> 0);
+    const plan = planCourse(rand, COURSE_LENGTH);
     this.course.reset(plan);
+    this.horrors.reset(planHorrors(rand, COURSE_LENGTH, [...plan.fences, ...plan.pickups.map((p) => p.at)]));
+    this.level = -1;
     this.corn.reset(plan.corn);
     this.cover = 0;
     this.atmosphere.setCover(this.scene, 0);
@@ -166,6 +189,7 @@ export class Game {
     this.offer = { weapon, left: CONFIG.pickups.decisionTime };
     this.input.clearQueued();
     this.hud.showOffer(WEAPONS[weapon], this.player.weapon);
+    this.preview.show(weapon);
     this.sfx.offer();
   }
 
@@ -191,7 +215,37 @@ export class Game {
     const model = models.length > 0 ? models[Math.floor(Math.random() * models.length)] : undefined;
     const runner = Math.random() < runnerChance(distance);
     const speed = zombieSpeed(distance, Math.random(), runner);
-    const zombie = new Zombie(x, this.player.position.z - dist, speed, model);
+    const body = (owner: Zombie) => (model ? new ModelBody(owner, model) : new PrimitiveBody(owner));
+    this.addZombie(new Zombie(x, this.player.position.z - dist, speed, body));
+  }
+
+  /** A brute, the mutant or a pack of dogs, straight ahead and not capped by `maxAlive`. */
+  private spawnSpecial(kind: EnemyKind, count: number): void {
+    const h = CONFIG.horrors;
+    const { position } = this.player;
+    const x0 = position.x + (Math.random() * 2 - 1) * 6;
+    const m = this.assets.horrors;
+    for (let i = 0; i < count; i++) {
+      let speed: number;
+      let body: (owner: Zombie) => ZombieBody;
+      if (kind === 'brute') {
+        speed = h.brute.speed;
+        body = (o) => (m.brute ? new ModelBody(o, m.brute) : new PrimitiveBody(o, { size: 1.35, girth: 1.6 }));
+      } else if (kind === 'mutant') {
+        speed = h.mutant.speed * (0.9 + Math.random() * 0.2);
+        body = (o) => new QuadBody(o, 2.4, m.mutant, true);
+      } else {
+        speed = h.dogs.speed * (0.85 + Math.random() * 0.3);
+        body = (o) => new QuadBody(o, 1.15, m.dog, false);
+      }
+      // Packs come in loosely strung out.
+      const x = x0 + (count > 1 ? (Math.random() * 2 - 1) * 4 : 0);
+      const z = position.z - h.spawnAhead - i * (2 + Math.random() * 3);
+      this.addZombie(new Zombie(x, z, speed, body, kind));
+    }
+  }
+
+  private addZombie(zombie: Zombie): void {
     this.zombies.push(zombie);
     this.scene.add(zombie.root);
   }
@@ -212,8 +266,10 @@ export class Game {
     this.elapsed += dt;
     this.wheat.update(this.elapsed, this.player.position);
     this.atmosphere.update(dt, this.elapsed, this.player.position);
+    this.sfx.crickets(this.state === 'playing' || this.state === 'paused' ? cricketLevel(this.nearestZombie()) : 1);
     this.hud.moveCrosshair(this.input.aim.x, this.input.aim.y);
     this.renderer.render(this.scene, this.player.camera);
+    if (this.offer && this.state === 'playing') this.preview.render(dt);
   }
 
   private update(realDt: number): void {
@@ -242,6 +298,15 @@ export class Game {
       this.openOffer(this.course.pickup.weapon);
       this.course.consumePickup();
     }
+
+    const level = levelAt(player.distance);
+    if (level !== this.level) {
+      this.level = level;
+      this.hud.showLevel(level + 1, CONFIG.levels[level].name);
+    }
+    const horror = this.horrors.update(dt, player.distance, player.position);
+    for (const s of horror.spawns) this.spawnSpecial(s.kind, s.count);
+    for (const at of horror.screams) this.sfx.groan(at, 'snarl');
 
     this.cover = cornCover(this.course.corn, player.distance);
     this.atmosphere.setCover(this.scene, this.cover);
@@ -291,7 +356,7 @@ export class Game {
     const reloading = player.reloadLeft > 0 ? 1 - player.reloadLeft / player.weapon.reloadTime : null;
     this.hud.update(this.stats, player.ammo, reloading);
 
-    if (grabbed) this.gameOver();
+    if (grabbed || horror.grabbed) this.gameOver();
   }
 
   /** Footsteps, corn brushing past and zombie groans. */
@@ -313,7 +378,7 @@ export class Game {
     for (const z of this.zombies) {
       if (!z.alive) continue;
       if (z.startedLunge) {
-        sfx.groan(z.position, 'snarl');
+        this.voice(z, 'snarl');
         z.groanIn = 2 + Math.random() * 3;
         continue;
       }
@@ -321,8 +386,24 @@ export class Game {
       if (z.groanIn > 0) continue;
       z.groanIn = 3 + Math.random() * 6;
       const dist = Math.hypot(z.position.x - player.position.x, z.position.z - player.position.z);
-      if (dist < 45) sfx.groan(z.position);
+      if (dist < 45) this.voice(z, 'idle');
     }
+  }
+
+  private voice(z: Zombie, kind: 'idle' | 'snarl' | 'death'): void {
+    if (z.kind === 'dog') this.sfx.bark(z.position, kind);
+    else if (z.kind === 'brute') this.sfx.bellow(z.position, kind);
+    else this.sfx.groan(z.position, kind);
+  }
+
+  /** Distance to the closest living zombie (for the crickets going quiet). */
+  private nearestZombie(): number {
+    const p = this.player.position;
+    let nearest = Infinity;
+    for (const z of this.zombies) {
+      if (z.alive) nearest = Math.min(nearest, Math.hypot(z.position.x - p.x, z.position.z - p.z));
+    }
+    return nearest;
   }
 
   /** `held` = automatic fire from a held trigger (no dry-fire clicks). */
@@ -337,7 +418,8 @@ export class Game {
     player.fire();
     this.sfx.shot(weapon.id);
 
-    const targets = this.zombies.filter((z) => z.alive).flatMap((z) => z.hitMeshes);
+    const shootables: Shootable[] = [...this.zombies.filter((z) => z.alive), ...this.horrors.targets];
+    const targets = shootables.flatMap((z) => z.hitMeshes);
     const muzzle = player.muzzleWorldPosition(this.tmpA);
     const origin = this.raycaster.ray.origin.clone();
     const aim = this.raycaster.ray.direction.clone();
@@ -357,10 +439,10 @@ export class Game {
       }
       this.raycaster.set(origin, dir);
       const hits = this.raycaster.intersectObjects(targets, false);
-      const struck = new Set<Zombie>();
+      const struck = new Set<Shootable>();
       let end: THREE.Vector3 | null = null;
       for (const hit of hits) {
-        const zombie = hit.object.userData.zombie as Zombie;
+        const zombie = hit.object.userData.zombie as Shootable;
         if (struck.has(zombie) || !zombie.alive) continue;
         struck.add(zombie);
         const part = hit.object.userData.part as HitPart;
@@ -372,7 +454,10 @@ export class Game {
         if (result.killed) {
           this.stats.kills += 1;
           if (part === 'head') this.stats.headshots += 1;
-          if (Math.random() < 0.6) this.sfx.groan(zombie.position, 'death');
+          if (Math.random() < 0.6) {
+            if (zombie instanceof Zombie) this.voice(zombie, 'death');
+            else this.sfx.groan(zombie.position, 'death');
+          }
         }
         if (struck.size >= weapon.pierce) break;
       }
