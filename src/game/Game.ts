@@ -447,7 +447,7 @@ export class Game {
         struck.add(zombie);
         const part = hit.object.userData.part as HitPart;
         const result = zombie.hit(part, hit.point, weapon.damage);
-        this.effects.blood(hit.point, dir, result.killed ? 26 : 10);
+        this.effects.blood(hit.point, dir, result.killed ? 26 : result.crippled ? 20 : 10);
         if (zombie instanceof Zombie) zombie.shove(dir, weapon.recoil);
         end = hit.point;
         anyHit = true;

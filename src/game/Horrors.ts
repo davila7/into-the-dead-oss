@@ -75,7 +75,7 @@ abstract class SetPiece implements Shootable {
     this.health = r.health;
     if (r.killed) this.dead = 0;
     else this.jolt();
-    return { killed: r.killed, point, part };
+    return { killed: r.killed, crippled: false, point, part };
   }
 
   protected abstract jolt(): void;

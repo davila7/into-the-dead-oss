@@ -16,9 +16,27 @@ export const CONFIG = {
     grabRadius: 0.9,
   },
   gun: {
-    /** Body hits a zombie takes from a 1-damage bullet; headshots always kill. */
+    /** Body hits a zombie takes from a 1-damage bullet; headshots always kill, leg shots cripple (see `crawl`). */
     bodyHealth: 2,
     range: 60,
+  },
+  /** Leg shots blow a leg off: the zombie drops and drags itself on, slow and low. */
+  crawl: {
+    /** Share of the weapon's body damage a leg hit does; it never kills. */
+    legDamage: 0.5,
+    /** Crawl speed is the walking speed times this, capped at `maxSpeed` (runners too). */
+    speedFactor: 0.35,
+    maxSpeed: 1.1,
+    /** Seconds to go from standing to prone. */
+    dropTime: 0.4,
+    /** Forward pitch (rad) of the prone body; `hipShift` (m) pulls it back so it lies over its spot. */
+    pitch: 1.35,
+    hipShift: 1.1,
+    lift: 0.18,
+    /** Crawlers can't lunge; they only grab ankles this close. */
+    grabRadius: 0.75,
+    /** Share of a severed leg that stays on as a stump. */
+    stump: 0.3,
   },
   /** How a zombie reacts to a bullet, alive or falling. Scaled by the weapon's recoil. */
   hitReaction: {
