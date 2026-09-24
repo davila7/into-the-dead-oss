@@ -91,6 +91,13 @@ body.playing #game { cursor: none; }
 }
 #offer[hidden] { display: none; }
 @keyframes offer-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+#offer-preview {
+  display: block;
+  width: 100%;
+  height: clamp(110px, 22vh, 170px);
+  margin: -4px 0 6px;
+  background: radial-gradient(ellipse at 50% 60%, #d8e27a22, transparent 70%);
+}
 .offer-title { font-size: 20px; }
 .offer-title b { color: #d8e27a; }
 #offer-blurb { margin: 6px 0 12px; font-size: 14px; opacity: 0.8; }
@@ -141,6 +148,7 @@ body.playing #game { cursor: none; }
   background: #fff;
 }
 body.playing #crosshair { display: block; }
+body.playing #crosshair[hidden] { display: none; }
 #crosshair.fire { animation: kick 0.18s ease-out; }
 #crosshair.hit { animation: kick 0.18s ease-out; border-color: #ff4a3a; }
 @keyframes kick { from { transform: scale(1.6); } to { transform: scale(1); } }

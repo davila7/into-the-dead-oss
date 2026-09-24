@@ -25,6 +25,7 @@ import {
 import { Player } from './Player';
 import { Sfx } from './Sfx';
 import { PICKUP_WEAPONS, WEAPONS, type WeaponId } from './weapons';
+import { WeaponPreview } from './WeaponPreview';
 import { WheatField } from './WheatField';
 import { World } from './World';
 import { type EnemyKind, type Shootable, Zombie } from './Zombie';
@@ -66,6 +67,7 @@ export class Game {
   private readonly horrors: Horrors;
   private level = -1;
   private offer: Offer | null = null;
+  private readonly preview: WeaponPreview;
   private cover = 0;
   private rustleTimer = 0;
   private readonly atmosphere: Atmosphere;
@@ -98,6 +100,7 @@ export class Game {
     this.corn = new CornField(this.scene, density);
     this.course = new Course(this.scene, assets, () => this.pickupWeapon());
     this.horrors = new Horrors(this.scene, assets);
+    this.preview = new WeaponPreview(this.hud.offerPreview, assets);
     this.wheat.isCorn = (d) => this.course.corn.some((c) => d > c.start - 1 && d < c.end + 1);
     this.player = new Player(window.innerWidth / window.innerHeight, assets.weapons);
     this.scene.add(this.player.camera);
@@ -186,6 +189,7 @@ export class Game {
     this.offer = { weapon, left: CONFIG.pickups.decisionTime };
     this.input.clearQueued();
     this.hud.showOffer(WEAPONS[weapon], this.player.weapon);
+    this.preview.show(weapon);
     this.sfx.offer();
   }
 
@@ -265,6 +269,7 @@ export class Game {
     this.sfx.crickets(this.state === 'playing' || this.state === 'paused' ? cricketLevel(this.nearestZombie()) : 1);
     this.hud.moveCrosshair(this.input.aim.x, this.input.aim.y);
     this.renderer.render(this.scene, this.player.camera);
+    if (this.offer && this.state === 'playing') this.preview.render(dt);
   }
 
   private update(realDt: number): void {

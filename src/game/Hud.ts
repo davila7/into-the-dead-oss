@@ -41,6 +41,7 @@ export class Hud {
   private readonly offerBar = $('offer-timer-bar');
   readonly offerTake = $('offer-take');
   readonly offerKeep = $('offer-keep');
+  readonly offerPreview = $('offer-preview') as HTMLCanvasElement;
   private readonly level = $('level');
   private readonly levelNumber = $('level-number');
   private readonly levelName = $('level-name');
@@ -74,6 +75,7 @@ export class Hud {
     this.offerBlurb.textContent = found.blurb;
     this.offerCurrent.textContent = current.name;
     this.offer.hidden = false;
+    this.crosshair.hidden = true;
   }
 
   /** `left` is 1 when the offer appears and 0 when it lapses. */
@@ -93,6 +95,7 @@ export class Hud {
 
   hideOffer(): void {
     this.offer.hidden = true;
+    this.crosshair.hidden = false;
   }
 
   show(screen: Screen | null): void {
