@@ -1,0 +1,171 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0e1014;
+  color: #e8e4da;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+#game { display: block; width: 100vw; height: 100vh; }
+
+body.playing #game { cursor: none; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+.stat {
+  position: absolute;
+  top: 16px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 6px #000;
+}
+.top-left { left: 20px; }
+.top-right { right: 20px; }
+.skull { color: #c9d86a; }
+
+.bottom-right {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+#hud-ammo { display: flex; gap: 5px; }
+.pip {
+  width: 9px;
+  height: 26px;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(#e8c26a, #a8782c);
+  box-shadow: 0 1px 4px #000;
+  transition: opacity 0.1s;
+}
+.pip.spent { opacity: 0.18; }
+#hud-reload { font-size: 12px; letter-spacing: 0.2em; text-align: right; }
+#hud-reload .bar { width: 120px; height: 4px; margin-top: 4px; background: #ffffff30; }
+#hud-reload-bar { height: 100%; width: 0; background: #e8c26a; }
+
+/* Crosshair follows the pointer */
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 2px solid #ffffffcc;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 4px #000;
+  display: none;
+}
+#crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #fff;
+}
+body.playing #crosshair { display: block; }
+#crosshair.fire { animation: kick 0.18s ease-out; }
+#crosshair.hit { animation: kick 0.18s ease-out; border-color: #ff4a3a; }
+@keyframes kick { from { transform: scale(1.6); } to { transform: scale(1); } }
+
+#damage {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 40%, #8a0000cc 100%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+#damage.on { opacity: 1; }
+
+/* Touch steering, only on coarse pointers */
+.steer {
+  position: fixed;
+  bottom: 24px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid #ffffff55;
+  background: #00000055;
+  color: #fff;
+  font-size: 26px;
+  display: none;
+}
+#steer-left { left: 24px; }
+#steer-right { left: 112px; }
+@media (pointer: coarse) {
+  body.playing .steer { display: block; }
+}
+
+/* Menus */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, #0e101488 0%, #0e1014ee 75%);
+}
+.screen[hidden] { display: none; }
+.screen h1 {
+  margin: 0;
+  font-size: clamp(40px, 9vw, 88px);
+  letter-spacing: 0.08em;
+  color: #d8e27a;
+  text-shadow: 0 4px 24px #000;
+}
+#screen-over h1 { color: #e0453a; }
+.tag { margin: 0; opacity: 0.8; }
+.screen button {
+  padding: 12px 36px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0e1014;
+  background: #d8e27a;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.screen button:hover { background: #eef58f; }
+.controls {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 2;
+  opacity: 0.85;
+}
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #ffffff55;
+  border-radius: 3px;
+  background: #ffffff14;
+}
+#over-stats { display: flex; gap: 32px; }
+#over-stats div { display: flex; flex-direction: column; }
+#over-stats b { font-size: 32px; }
+#over-stats span { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.7; }
