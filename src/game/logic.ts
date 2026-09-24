@@ -1,4 +1,6 @@
 import { CONFIG } from './config';
+import { PERK_IDS, PERKS, type PerkId, type PerkStacks } from './perks';
+import type { WeaponDef } from './weapons';
 
 export type HitPart = 'head' | 'body' | 'legs';
 
@@ -251,4 +253,42 @@ export function cricketLevel(nearest: number): number {
   const c = CONFIG.crickets;
   const t = clamp((nearest - c.hushNear) / (c.fullAt - c.hushNear), 0, 1);
   return lerp(c.hushedLevel, 1, t);
+}
+
+/** Distance of the `n`-th perk choice (0-based). */
+export function perkMilestone(n: number): number {
+  return CONFIG.perks.first + n * CONFIG.perks.every;
+}
+
+/** Perks that can still be taken. */
+export function availablePerks(stacks: PerkStacks): PerkId[] {
+  return PERK_IDS.filter((id) => (stacks[id] ?? 0) < PERKS[id].maxStacks);
+}
+
+/** Up to `count` distinct perks that are not maxed out, in random order. */
+export function rollPerks(rand: () => number, stacks: PerkStacks, count: number = CONFIG.perks.choices): PerkId[] {
+  const pool = availablePerks(stacks);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+/** A weapon with the run's perks applied on top of its base stats. */
+export function perkedWeapon(def: WeaponDef, stacks: PerkStacks): WeaponDef {
+  const p = CONFIG.perks;
+  const n = (id: PerkId) => stacks[id] ?? 0;
+  return {
+    ...def,
+    reloadTime: def.reloadTime * p.reloadFactor ** n('quickHands'),
+    pierce: def.pierce + p.pierceBonus * n('piercing'),
+    magazine: Math.ceil(def.magazine * p.magazineFactor ** n('extendedMag')),
+    fireCooldown: def.fireCooldown * p.fireCooldownFactor ** n('hairTrigger'),
+  };
+}
+
+/** Sideways speed multiplier from Fleet Foot. */
+export function strafeFactor(stacks: PerkStacks): number {
+  return CONFIG.perks.strafeFactor ** (stacks.fleetFoot ?? 0);
 }

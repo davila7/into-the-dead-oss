@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { LoadedModel } from '../assets/manifest';
 import { CONFIG } from './config';
-import { clamp, lerp, playerSpeed, vaultProfile } from './logic';
+import { clamp, lerp, perkedWeapon, playerSpeed, strafeFactor, vaultProfile } from './logic';
 import { MuzzleFlash } from './MuzzleFlash';
+import type { PerkStacks } from './perks';
 import { WEAPONS, type WeaponDef, type WeaponId } from './weapons';
 
 /** Where each viewmodel sits in front of the camera (x right, y up, z forward = -). */
@@ -70,7 +71,10 @@ export class Player {
   readonly position = new THREE.Vector3();
   distance = 0;
 
+  /** The weapon in hand with the run's perks applied; `baseWeapon` is its plain stats. */
   weapon: WeaponDef = WEAPONS.pistol;
+  private baseWeapon: WeaponDef = WEAPONS.pistol;
+  private perks: PerkStacks = {};
   ammo = WEAPONS.pistol.magazine;
   reloadLeft = 0;
   /** Set for the frame in which a footstep lands. */
@@ -125,10 +129,11 @@ export class Player {
     return vm;
   }
 
-  /** Puts `def` in the player's hands with a full magazine. */
+  /** Puts `def` in the player's hands (perks applied) with a full magazine. */
   equip(def: WeaponDef, animate = true): void {
-    this.weapon = def;
-    this.ammo = def.magazine;
+    this.baseWeapon = def;
+    this.weapon = perkedWeapon(def, this.perks);
+    this.ammo = this.weapon.magazine;
     this.reloadLeft = 0;
     this.cooldown = animate ? SWAP_TIME * 0.6 : 0;
     this.swapLeft = animate ? SWAP_TIME : 0;
@@ -136,6 +141,14 @@ export class Player {
     const vm = this.viewmodel(def.id);
     this.holder.add(vm.group);
     this.muzzle.position.copy(vm.muzzle);
+  }
+
+  /** Applies the run's perks to the weapon in hand; a bigger magazine is topped up by the difference. */
+  setPerks(perks: PerkStacks): void {
+    this.perks = { ...perks };
+    const before = this.weapon.magazine;
+    this.weapon = perkedWeapon(this.baseWeapon, this.perks);
+    this.ammo = Math.min(this.weapon.magazine, this.ammo + Math.max(0, this.weapon.magazine - before));
   }
 
   set gunVisible(visible: boolean) {
@@ -159,6 +172,7 @@ export class Player {
     this.recoil = 0;
     this.vaultLeft = 0;
     this.flash.reset();
+    this.perks = {};
     this.equip(WEAPONS.pistol, false);
     this.syncCamera();
   }
@@ -180,7 +194,7 @@ export class Player {
     this.vaultLeft = Math.max(0, this.vaultLeft - dt);
 
     // Ease strafe velocity for a less twitchy feel; no steering mid-climb.
-    const steerTarget = this.vaulting ? 0 : steer * cfg.strafeSpeed;
+    const steerTarget = this.vaulting ? 0 : steer * cfg.strafeSpeed * strafeFactor(this.perks);
     this.strafeVel = lerp(this.strafeVel, steerTarget, clamp(dt * 10, 0, 1));
     // No side walls: the field wraps around the runner, so they can strafe as far as they like.
     this.position.x += this.strafeVel * dt;

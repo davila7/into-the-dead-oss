@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
+import { PERK_IDS, PERKS } from './perks';
+import { WEAPONS } from './weapons';
 import {
   applyHit,
   crawlSpeed,
@@ -9,11 +11,16 @@ import {
   maxAlive,
   mulberry32,
   packFor,
+  availablePerks,
+  perkedWeapon,
+  perkMilestone,
   planCourse,
   planHorrors,
   playerSpeed,
+  rollPerks,
   runnerChance,
   spawnInterval,
+  strafeFactor,
   stepTowards,
   vaultProfile,
   wrapAround,
@@ -271,5 +278,52 @@ describe('cricketLevel', () => {
     expect(cricketLevel(1000)).toBe(1);
     expect(cricketLevel(0)).toBe(CONFIG.crickets.hushedLevel);
     expect(cricketLevel(15)).toBeGreaterThan(cricketLevel(8));
+  });
+});
+
+describe('perks', () => {
+  it('come due at `first` and then every `every` meters', () => {
+    expect(perkMilestone(0)).toBe(CONFIG.perks.first);
+    expect(perkMilestone(3) - perkMilestone(2)).toBe(CONFIG.perks.every);
+  });
+
+  it('offers distinct perks, skipping maxed ones', () => {
+    const rand = mulberry32(7);
+    for (let i = 0; i < 50; i++) {
+      const roll = rollPerks(rand, {});
+      expect(roll).toHaveLength(CONFIG.perks.choices);
+      expect(new Set(roll).size).toBe(roll.length);
+    }
+    const maxed = { piercing: PERKS.piercing.maxStacks, quickHands: PERKS.quickHands.maxStacks };
+    for (let i = 0; i < 50; i++) {
+      const roll = rollPerks(rand, maxed);
+      expect(roll).not.toContain('piercing');
+      expect(roll).not.toContain('quickHands');
+    }
+  });
+
+  it('offers fewer cards, then none, as perks max out', () => {
+    const allButOne = Object.fromEntries(PERK_IDS.slice(1).map((id) => [id, PERKS[id].maxStacks]));
+    expect(rollPerks(mulberry32(1), allButOne)).toEqual([PERK_IDS[0]]);
+    const all = { ...allButOne, [PERK_IDS[0]]: PERKS[PERK_IDS[0]].maxStacks };
+    expect(availablePerks(all)).toEqual([]);
+    expect(rollPerks(mulberry32(1), all)).toEqual([]);
+  });
+
+  it('leaves the weapon alone with no perks', () => {
+    expect(perkedWeapon(WEAPONS.pistol, {})).toEqual(WEAPONS.pistol);
+    expect(strafeFactor({})).toBe(1);
+  });
+
+  it('stacks weapon perks multiplicatively and keeps whole magazines', () => {
+    const p = CONFIG.perks;
+    const w = perkedWeapon(WEAPONS.pistol, { quickHands: 2, piercing: 1, extendedMag: 1, hairTrigger: 1 });
+    expect(w.reloadTime).toBeCloseTo(WEAPONS.pistol.reloadTime * p.reloadFactor ** 2);
+    expect(w.pierce).toBe(WEAPONS.pistol.pierce + p.pierceBonus);
+    expect(w.magazine).toBe(Math.ceil(WEAPONS.pistol.magazine * p.magazineFactor));
+    expect(Number.isInteger(perkedWeapon(WEAPONS.shotgun, { extendedMag: 1 }).magazine)).toBe(true);
+    expect(w.fireCooldown).toBeCloseTo(WEAPONS.pistol.fireCooldown * p.fireCooldownFactor);
+    expect(w.name).toBe(WEAPONS.pistol.name);
+    expect(strafeFactor({ fleetFoot: 2 })).toBeCloseTo(p.strafeFactor ** 2);
   });
 });

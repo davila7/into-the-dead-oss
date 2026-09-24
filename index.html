@@ -9,7 +9,7 @@
     <canvas id="game"></canvas>
 
     <div id="hud">
-      <div class="stat top-left"><span id="hud-distance">0 m</span></div>
+      <div class="stat top-left"><span id="hud-distance">0 m</span><div id="hud-perks"></div></div>
       <div class="stat top-right"><span class="skull">☠</span> <span id="hud-kills">0</span></div>
       <div class="bottom-right">
         <div id="hud-reload" hidden>
@@ -32,6 +32,12 @@
       <div class="offer-timer"><div id="offer-timer-bar"></div></div>
     </div>
 
+    <div id="perks" hidden>
+      <div class="offer-title">Choose a <b>perk</b></div>
+      <div id="perk-cards"></div>
+      <div class="offer-timer"><div id="perk-timer-bar"></div></div>
+    </div>
+
     <div id="level" hidden><span id="level-number"></span><b id="level-name"></b></div>
 
     <div id="crosshair"></div>
@@ -49,6 +55,7 @@
         <li><kbd>Click</kbd> / <kbd>Space</kbd> shoot at the crosshair</li>
         <li><kbd>R</kbd> reload · <kbd>P</kbd> pause</li>
         <li>Grab weapons in the field: <kbd>E</kbd> take · <kbd>Q</kbd> keep yours</li>
+        <li>Every few hundred meters pick a perk: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></li>
         <li>Headshots kill instantly</li>
       </ul>
     </section>
