@@ -62,6 +62,8 @@ export function makePlaceholderGun(id: WeaponId): { group: THREE.Group; muzzle: 
   }
 }
 
+const FOV = 70;
+
 /** First-person runner: auto-advances towards -Z, steers on X, carries one weapon. */
 export class Player {
   readonly camera: THREE.PerspectiveCamera;
@@ -88,12 +90,20 @@ export class Player {
   private readonly viewmodels = new Map<WeaponId, { group: THREE.Object3D; muzzle: THREE.Vector3 }>();
 
   constructor(aspect: number, private readonly models: Partial<Record<WeaponId, LoadedModel>>) {
-    this.camera = new THREE.PerspectiveCamera(70, aspect, 0.05, 200);
+    this.camera = new THREE.PerspectiveCamera(FOV, aspect, 0.05, 200);
 
     this.muzzle.add(this.flash);
     this.gun.add(this.holder, this.muzzle);
     this.camera.add(this.gun);
     this.reset();
+  }
+
+  /** Narrows the field of view by `amount` (0..1) for the kill cam. */
+  setZoom(amount: number): void {
+    const fov = FOV * (1 - amount);
+    if (fov === this.camera.fov) return;
+    this.camera.fov = fov;
+    this.camera.updateProjectionMatrix();
   }
 
   private viewmodel(id: WeaponId): { group: THREE.Object3D; muzzle: THREE.Vector3 } {

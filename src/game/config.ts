@@ -20,6 +20,21 @@ export const CONFIG = {
     bodyHealth: 2,
     range: 60,
   },
+  /**
+   * Kill cam: a short slow-motion beat with a slight zoom on a headshot kill or a chain of kills.
+   * Times are real seconds; the weapon offer's own slow motion wins while it is open.
+   */
+  killCam: {
+    duration: 0.3,
+    timeScale: 0.25,
+    /** The field of view narrows by this fraction at the peak. */
+    zoom: 0.08,
+    /** Kills each within `chainWindow` of the last one count as a chain once there are `chainKills`. */
+    chainKills: 3,
+    chainWindow: 0.9,
+    /** Real seconds after a kill cam starts before another can, so automatic fire doesn't crawl. */
+    cooldown: 1.2,
+  },
   /** How a zombie reacts to a bullet, alive or falling. Scaled by the weapon's recoil. */
   hitReaction: {
     /** Knockback speed (m/s) per point of recoil, bleeding off at `knockDamping` per second. */
