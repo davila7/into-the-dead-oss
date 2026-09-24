@@ -8,13 +8,18 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "assets:fetch": "node scripts/fetch-assets.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
     "@types/three": "^0.186.0",
+    "sharp": "^0.35.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"

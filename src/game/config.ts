@@ -1,3 +1,5 @@
+import { Vector3 } from 'three';
+
 /** Gameplay tunables. Distances in meters, times in seconds. Forward is -Z. */
 export const CONFIG = {
   player: {
@@ -35,9 +37,25 @@ export const CONFIG = {
   world: {
     tileLength: 40,
     tileCount: 4,
-    treesPerTile: 18,
-    fogColor: 0x252b33,
-    fogNear: 10,
-    fogFar: 68,
+    treesPerTile: 3,
+    scarecrowChance: 0.35,
+  },
+  wheat: {
+    height: 0.95,
+    tileLength: 30,
+    tileCount: 4,
+    halfWidth: 34,
+    /** Tufts of 3 stalks per tile at density 1 (see ?quality=low|high). */
+    tuftsPerTile: 5200,
+  },
+  atmosphere: {
+    horizonColor: 0x3d4756,
+    zenithColor: 0x05070b,
+    silhouetteColor: 0x161a21,
+    mistColor: 0x9aa6b8,
+    fogDensity: 0.028,
+    mistCount: 70,
+    chaffCount: 500,
+    moonDirection: new Vector3(-0.45, 0.42, -0.79).normalize(),
   },
 } as const;

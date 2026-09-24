@@ -148,6 +148,7 @@ body.playing #crosshair { display: block; }
   cursor: pointer;
 }
 .screen button:hover { background: #eef58f; }
+.screen button:disabled { opacity: 0.6; cursor: progress; }
 .controls {
   list-style: none;
   padding: 0;
