@@ -62,7 +62,7 @@ export class Game {
     this.atmosphere = new Atmosphere(this.scene, density);
     this.world = new World(this.scene, assets);
     this.wheat = new WheatField(this.scene, density);
-    this.player = new Player(window.innerWidth / window.innerHeight);
+    this.player = new Player(window.innerWidth / window.innerHeight, assets.weapon);
     this.scene.add(this.player.camera);
     this.effects = new Effects(this.scene);
     this.input = new Input(canvas);

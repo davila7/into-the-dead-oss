@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { LoadedModel } from '../assets/manifest';
 import { CONFIG } from './config';
 import { clamp, lerp, playerSpeed } from './logic';
 
@@ -21,7 +22,7 @@ export class Player {
   private readonly flashLight = new THREE.PointLight(0xffc680, 0, 12, 2);
   private readonly tmp = new THREE.Vector3();
 
-  constructor(aspect: number) {
+  constructor(aspect: number, weapon?: LoadedModel) {
     this.camera = new THREE.PerspectiveCamera(70, aspect, 0.05, 200);
 
     const metal = new THREE.MeshLambertMaterial({ color: 0x2b2d31 });
@@ -36,8 +37,19 @@ export class Player {
     handle.rotation.x = -0.25;
     const hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.08), skin);
     hand.position.set(0.005, -0.07, 0.07);
-    this.gun.add(slide, barrel, handle, hand);
-    this.muzzle.position.set(0, 0.004, -0.11);
+    if (weapon) {
+      // Generated hand + pistol: centre it on the grip position and keep the muzzle at its front.
+      const model = weapon.scene.clone(true);
+      const box = new THREE.Box3().setFromObject(model);
+      const centre = box.getCenter(new THREE.Vector3());
+      model.position.sub(centre);
+      model.position.y -= 0.03;
+      this.gun.add(model);
+      this.muzzle.position.set(0, 0.01, box.min.z - centre.z);
+    } else {
+      this.gun.add(slide, barrel, handle, hand);
+      this.muzzle.position.set(0, 0.004, -0.11);
+    }
     this.gun.add(this.muzzle);
 
     this.flash = new THREE.Mesh(

@@ -2,6 +2,7 @@
 // Downloads the generated models listed in art/higgsfield-assets.json and shrinks them
 // for the web: textures resized to 1024px WebP, unused data pruned.
 // Usage: npm run assets:fetch [-- name ...]   (skips files that already exist; --force to redo)
+// --optional: warn instead of failing when a download fails (used by the deploy build).
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
@@ -11,6 +12,7 @@ import sharp from 'sharp';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
+const optional = args.includes('--optional');
 const only = args.filter((a) => !a.startsWith('--'));
 const manifest = JSON.parse(await fs.readFile('art/higgsfield-assets.json', 'utf8'));
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
@@ -22,9 +24,17 @@ for (const entry of manifest.models) {
     console.log(`skip  ${entry.name} (exists)`);
     continue;
   }
-  const res = await fetch(entry.url);
-  if (!res.ok) throw new Error(`${entry.name}: HTTP ${res.status} for ${entry.url}`);
-  const raw = new Uint8Array(await res.arrayBuffer());
+  let raw;
+  try {
+    const res = await fetch(entry.url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    raw = new Uint8Array(await res.arrayBuffer());
+  } catch (err) {
+    const msg = `${entry.name}: download failed (${err.cause?.message ?? err.message}) for ${entry.url}`;
+    if (!optional) throw new Error(msg);
+    console.warn(`warn  ${msg}`);
+    continue;
+  }
   const doc = await io.readBinary(raw);
   await doc.transform(
     dedup(),

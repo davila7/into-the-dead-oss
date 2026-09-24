@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import generated from '../../art/higgsfield-assets.json';
 
 /**
  * Slots for generated art (Higgsfield). Every slot is optional: when it is empty, or
@@ -14,7 +15,10 @@ export interface TextureSlot {
 }
 
 export interface ModelSlot {
+  /** Local file under public/ (fetched by `npm run assets:fetch`). */
   url: string;
+  /** Fallback source (the Higgsfield CDN) used while the local file isn't there. */
+  remote?: string;
   /** Height in meters the model is scaled to. */
   height: number;
   /** Extra yaw (radians) if the model doesn't face +Z. */
@@ -27,6 +31,17 @@ export interface ZombieSlot extends ModelSlot {
   clipSpeed: number;
 }
 
+/** Remote URLs for generated models, keyed by name (see art/higgsfield-assets.json). */
+const remoteByName = new Map<string, string>(generated.models.map((m) => [m.name, m.url]));
+
+function generatedSlot(name: string, height: number, yaw?: number): ModelSlot {
+  return { url: `assets/models/${name}.glb`, remote: remoteByName.get(name), height, yaw };
+}
+
+function zombieSlot(name: string, height: number, clipSpeed: number): ZombieSlot {
+  return { ...generatedSlot(name, height), id: name, clipSpeed };
+}
+
 export const ASSETS = {
   textures: {
     ground: {} as TextureSlot,
@@ -34,9 +49,20 @@ export const ASSETS = {
     sky: {} as TextureSlot,
   },
   /** Rigged GLBs with an in-place walk clip. */
-  zombies: [] as ZombieSlot[],
-  trees: [] as ModelSlot[],
-  scarecrow: undefined as ModelSlot | undefined,
+  zombies: [
+    zombieSlot('zombie-farmer', 1.75, 0.9),
+    zombieSlot('zombie-farmwife', 1.65, 0.9),
+    zombieSlot('zombie-trucker', 1.85, 0.8),
+    zombieSlot('zombie-deputy', 1.8, 0.9),
+    zombieSlot('zombie-hunter', 1.8, 0.9),
+  ] as ZombieSlot[],
+  trees: [generatedSlot('tree-oak', 7), generatedSlot('tree-cottonwood', 11)] as ModelSlot[],
+  scarecrow: generatedSlot('scarecrow', 2.6) as ModelSlot | undefined,
+  /**
+   * First-person hand + pistol. `height` here is the model's longest side in meters;
+   * the source image shows the barrel pointing left (-X), so yaw it to face -Z.
+   */
+  weapon: generatedSlot('viewmodel-pistol', 0.3, -Math.PI / 2) as ModelSlot | undefined,
 };
 
 export type TextureKey = keyof typeof ASSETS.textures;
@@ -57,6 +83,7 @@ export interface LoadedAssets {
   zombies: LoadedZombie[];
   trees: LoadedModel[];
   scarecrow?: LoadedModel;
+  weapon?: LoadedModel;
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -80,14 +107,28 @@ async function loadTexture(slot: TextureSlot): Promise<THREE.Texture | undefined
   }
 }
 
-async function loadModel(slot: ModelSlot): Promise<LoadedModel | undefined> {
+async function loadGltf(slot: ModelSlot) {
+  const sources = [resolve(slot.url), slot.remote].filter((u): u is string => Boolean(u));
+  let lastError: unknown;
+  for (const src of sources) {
+    try {
+      return await gltfLoader.loadAsync(src);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
+async function loadModel(slot: ModelSlot, fit: 'height' | 'longest' = 'height'): Promise<LoadedModel | undefined> {
   try {
-    const gltf = await gltfLoader.loadAsync(resolve(slot.url));
+    const gltf = await loadGltf(slot);
     const inner = gltf.scene;
     inner.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(inner);
     const size = box.getSize(new THREE.Vector3());
-    const scale = size.y > 0 ? slot.height / size.y : 1;
+    const measured = fit === 'height' ? size.y : Math.max(size.x, size.y, size.z);
+    const scale = measured > 0 ? slot.height / measured : 1;
     const center = box.getCenter(new THREE.Vector3());
     inner.scale.multiplyScalar(scale);
     inner.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
@@ -109,14 +150,15 @@ async function loadModel(slot: ModelSlot): Promise<LoadedModel | undefined> {
 
 export async function loadAssets(): Promise<LoadedAssets> {
   const textureEntries = Object.entries(ASSETS.textures) as [TextureKey, TextureSlot][];
-  const [textureList, zombies, trees, scarecrow] = await Promise.all([
+  const [textureList, zombies, trees, scarecrow, weapon] = await Promise.all([
     Promise.all(textureEntries.map(async ([key, slot]) => [key, await loadTexture(slot)] as const)),
     Promise.all(ASSETS.zombies.map(async (slot) => {
       const model = await loadModel(slot);
       return model && model.animations.length > 0 ? { ...model, slot } : undefined;
     })),
-    Promise.all(ASSETS.trees.map(loadModel)),
+    Promise.all(ASSETS.trees.map((slot) => loadModel(slot))),
     ASSETS.scarecrow ? loadModel(ASSETS.scarecrow) : Promise.resolve(undefined),
+    ASSETS.weapon ? loadModel(ASSETS.weapon, 'longest') : Promise.resolve(undefined),
   ]);
   const textures: LoadedTextures = {};
   for (const [key, tex] of textureList) if (tex) textures[key] = tex;
@@ -125,5 +167,6 @@ export async function loadAssets(): Promise<LoadedAssets> {
     zombies: zombies.filter((z): z is LoadedZombie => z !== undefined),
     trees: trees.filter((t): t is LoadedModel => t !== undefined),
     scarecrow,
+    weapon,
   };
 }
