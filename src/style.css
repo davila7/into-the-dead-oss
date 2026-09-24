@@ -53,6 +53,27 @@ body.playing #game { cursor: none; }
 .ammo-count { font-size: 24px; font-weight: 700; letter-spacing: 0.04em; text-shadow: 0 2px 6px #000; }
 #hud-weapon { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.75; text-shadow: 0 1px 4px #000; }
 
+/* Level banner: flashes up when the run reaches a new level */
+#level {
+  position: fixed;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  text-shadow: 0 2px 10px #000;
+}
+#level[hidden] { display: none; }
+#level.show { animation: level-flash 3.6s ease-in-out forwards; }
+#level-number { display: block; font-size: 13px; letter-spacing: 0.4em; text-transform: uppercase; opacity: 0.7; }
+#level-name { display: block; margin-top: 4px; font-size: clamp(24px, 6vw, 40px); letter-spacing: 0.12em; text-transform: uppercase; color: #c9402f; }
+@keyframes level-flash {
+  0% { opacity: 0; letter-spacing: 0.3em; }
+  15%, 70% { opacity: 1; letter-spacing: 0.12em; }
+  100% { opacity: 0; }
+}
+
 /* Weapon found: take it or keep the current one */
 #offer {
   position: fixed;

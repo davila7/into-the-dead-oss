@@ -1,5 +1,8 @@
 import { Vector3 } from 'three';
 
+/** Distance (m) at which each new horror joins the run; each one starts a level. */
+const LEVEL_FROM = { hanged: 300, crucified: 700, brute: 1100, mutant: 1700, dogs: 2400 } as const;
+
 /** Gameplay tunables. Distances in meters, times in seconds. Forward is -Z. */
 export const CONFIG = {
   player: {
@@ -101,6 +104,37 @@ export const CONFIG = {
     runnerSpeedMin: 3.6,
     runnerSpeedMax: 5,
   },
+  /** Levels announced on the HUD as the run reaches them. */
+  levels: [
+    { from: 0, name: 'The field' },
+    { from: LEVEL_FROM.hanged, name: 'Hanged men' },
+    { from: LEVEL_FROM.crucified, name: 'The crucified' },
+    { from: LEVEL_FROM.brute, name: 'The big one' },
+    { from: LEVEL_FROM.mutant, name: 'Mutation' },
+    { from: LEVEL_FROM.dogs, name: 'The pack' },
+  ],
+  /**
+   * Set pieces and special zombies, scheduled along the run from their level onwards.
+   * Gaps shrink by up to `gapShrink` at full difficulty.
+   */
+  horrors: {
+    gapShrink: 0.4,
+    /** How far ahead set pieces are put in place, and special zombies spawn. */
+    showAhead: 95,
+    spawnAhead: 65,
+    /** Bodies hanging from dead trees, hooded, swinging. Pass underneath and they grab you. */
+    hanged: { from: LEVEL_FROM.hanged, gapMin: 110, gapMax: 190, offsetMax: 3.5, grabRadius: 0.75, health: 2 },
+    /** Zombies bound to crosses out in the field, writhing and screaming as you go by. */
+    crucified: { from: LEVEL_FROM.crucified, gapMin: 170, gapMax: 300, offsetMin: 4, offsetMax: 9, screamDistance: 22, health: 3 },
+    /** A huge slow zombie that soaks up bullets; headshots only do `headMultiplier` times damage. */
+    brute: { from: LEVEL_FROM.brute, gapMin: 260, gapMax: 420, health: 12, headMultiplier: 4, speed: 1.3, grabRadius: 1.35 },
+    /** A mutated four-legged thing with a split head, weaving as it gallops in. */
+    mutant: { from: LEVEL_FROM.mutant, gapMin: 220, gapMax: 360, health: 5, headMultiplier: 3, speed: 6.5, weave: 3.5 },
+    /** Fast zombie dogs in packs, the last and hardest stretch. */
+    dogs: { from: LEVEL_FROM.dogs, gapMin: 120, gapMax: 220, packMin: 3, packMax: 5, health: 1, speed: 7.5 },
+  },
+  /** Night ambience: crickets hush when something gets close. */
+  crickets: { hushNear: 5, fullAt: 25, hushedLevel: 0.2 },
   world: {
     tileLength: 40,
     tileCount: 4,
