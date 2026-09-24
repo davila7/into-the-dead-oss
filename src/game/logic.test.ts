@@ -4,6 +4,7 @@ import { PERK_IDS, PERKS } from './perks';
 import { WEAPONS } from './weapons';
 import {
   applyHit,
+  crawlSpeed,
   cornCover,
   cricketLevel,
   levelAt,
@@ -28,7 +29,7 @@ import {
 
 describe('applyHit', () => {
   it('kills on a headshot regardless of health', () => {
-    expect(applyHit(CONFIG.gun.bodyHealth, 'head')).toEqual({ health: 0, killed: true });
+    expect(applyHit(CONFIG.gun.bodyHealth, 'head')).toEqual({ health: 0, killed: true, crippled: false });
   });
 
   it('needs bodyHealth body shots to kill', () => {
@@ -46,10 +47,40 @@ describe('applyHit', () => {
   });
 });
 
+describe('leg shots', () => {
+  it('take a leg off without killing, even at 1 health or with big damage', () => {
+    expect(applyHit(CONFIG.gun.bodyHealth, 'legs', 1, Infinity, true)).toEqual({
+      health: CONFIG.gun.bodyHealth - CONFIG.crawl.legDamage,
+      killed: false,
+      crippled: true,
+    });
+    expect(applyHit(1, 'legs', 1, Infinity, true)).toEqual({ health: 1, killed: false, crippled: true });
+    expect(applyHit(0.5, 'legs', 10, Infinity, true)).toEqual({ health: 0.5, killed: false, crippled: true });
+  });
+
+  it('count as body hits once the zombie is already crawling (or can never crawl)', () => {
+    expect(applyHit(CONFIG.gun.bodyHealth, 'legs', 1, Infinity, false)).toEqual(applyHit(CONFIG.gun.bodyHealth, 'body'));
+    expect(applyHit(1, 'legs').killed).toBe(true);
+  });
+
+  it('leave the head as an instant kill for crawlers', () => {
+    const legged = applyHit(CONFIG.gun.bodyHealth, 'legs', 1, Infinity, true);
+    expect(applyHit(legged.health, 'head').killed).toBe(true);
+  });
+});
+
+describe('crawlSpeed', () => {
+  it('is a fraction of walking pace and caps runners', () => {
+    expect(crawlSpeed(1)).toBeCloseTo(CONFIG.crawl.speedFactor);
+    expect(crawlSpeed(CONFIG.difficulty.runnerSpeedMax)).toBeLessThanOrEqual(CONFIG.crawl.maxSpeed);
+    expect(crawlSpeed(CONFIG.zombies.walkSpeedMin)).toBeLessThan(CONFIG.zombies.walkSpeedMin);
+  });
+});
+
 describe('applyHit on tough zombies', () => {
   it('headshots multiply damage instead of killing outright', () => {
     const b = CONFIG.horrors.brute;
-    expect(applyHit(b.health, 'head', 1, b.headMultiplier)).toEqual({ health: b.health - b.headMultiplier, killed: false });
+    expect(applyHit(b.health, 'head', 1, b.headMultiplier)).toEqual({ health: b.health - b.headMultiplier, killed: false, crippled: false });
     expect(applyHit(b.headMultiplier, 'head', 1, b.headMultiplier).killed).toBe(true);
   });
 });

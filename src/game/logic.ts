@@ -2,7 +2,7 @@ import { CONFIG } from './config';
 import { PERK_IDS, PERKS, type PerkId, type PerkStacks } from './perks';
 import type { WeaponDef } from './weapons';
 
-export type HitPart = 'head' | 'body';
+export type HitPart = 'head' | 'body' | 'legs';
 
 /** Deterministic PRNG so scenery and tests are reproducible. */
 export function mulberry32(seed: number): () => number {
@@ -75,18 +75,38 @@ export function playerSpeed(distance: number): number {
   return Math.min(p.maxSpeed, p.startSpeed + distance * p.speedPerMeter);
 }
 
+export interface HitOutcome {
+  health: number;
+  killed: boolean;
+  /** A leg came off: the zombie drops and crawls from now on. */
+  crippled: boolean;
+}
+
 /**
  * Body shots chip away at health. Headshots always kill, unless `headMultiplier` is finite
  * (tough zombies), in which case they do that many times the damage.
+ * Leg shots on a zombie that `canCripple` (on its feet, two legs) take a leg off: a share of
+ * the damage (`CONFIG.crawl.legDamage`) that never kills. Otherwise legs count as the body.
  */
 export function applyHit(
   health: number,
   part: HitPart,
   damage = 1,
   headMultiplier = Infinity,
-): { health: number; killed: boolean } {
+  canCripple = false,
+): HitOutcome {
+  if (part === 'legs' && canCripple) {
+    const next = Math.max(Math.min(health, 1), health - damage * CONFIG.crawl.legDamage);
+    return { health: next, killed: false, crippled: true };
+  }
   const next = part === 'head' ? (Number.isFinite(headMultiplier) ? health - damage * headMultiplier : 0) : health - damage;
-  return { health: Math.max(0, next), killed: next <= 0 };
+  return { health: Math.max(0, next), killed: next <= 0, crippled: false };
+}
+
+/** How fast a legless zombie drags itself along, given how fast it walked. */
+export function crawlSpeed(walkSpeed: number): number {
+  const c = CONFIG.crawl;
+  return Math.min(c.maxSpeed, walkSpeed * c.speedFactor);
 }
 
 /**

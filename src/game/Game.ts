@@ -8,6 +8,7 @@ import { Effects } from './Effects';
 import { Horrors } from './Horrors';
 import { Hud, type RunStats } from './Hud';
 import { Input } from './Input';
+import { KillCam } from './KillCam';
 import type { HitPart } from './logic';
 import {
   cornCover,
@@ -93,6 +94,7 @@ export class Game {
   private readonly input: Input;
   private readonly hud = new Hud();
   private readonly sfx = new Sfx();
+  private readonly killCam = new KillCam();
   private readonly raycaster = new THREE.Raycaster();
   readonly zombies: Zombie[] = [];
   private spawnTimer = 0;
@@ -175,6 +177,8 @@ export class Game {
     this.atmosphere.reset(this.player.position);
     this.effects.reset();
     this.stats.distance = this.stats.kills = this.stats.headshots = 0;
+    this.killCam.reset();
+    this.player.setZoom(0);
     this.spawnTimer = 0;
     // A few zombies already shambling in the fog so the first seconds aren't empty.
     for (let i = 0; i < 5; i++) this.spawnZombie(32 + i * 8);
@@ -348,8 +352,11 @@ export class Game {
   private update(realDt: number): void {
     const { player, input } = this;
     let dt = realDt;
+    this.killCam.update(realDt);
     // Choosing a perk or a weapon: the world crawls in slow motion until the player decides.
+    // That slow motion takes over from any kill cam.
     if (this.perkOffer) {
+      this.killCam.cancel();
       this.perkOffer.left -= realDt;
       this.hud.updatePerks(Math.max(0, this.perkOffer.left / CONFIG.perks.decisionTime));
       const pick = input.consumePick();
@@ -358,6 +365,7 @@ export class Game {
       else if (this.perkOffer.left <= 0) this.closePerks(null);
       else dt *= CONFIG.perks.decisionTimeScale;
     } else if (this.offer) {
+      this.killCam.cancel();
       this.offer.left -= realDt;
       this.hud.updateOffer(Math.max(0, this.offer.left / CONFIG.pickups.decisionTime));
       const choice = input.consumeChoice();
@@ -365,6 +373,8 @@ export class Game {
       else if (this.offer.left <= 0) this.closeOffer(false);
       else dt *= CONFIG.pickups.decisionTimeScale;
     }
+    if (!this.offer && !this.perkOffer) dt *= this.killCam.timeScale;
+    player.setZoom(this.killCam.zoom);
 
     player.update(dt, input.steer);
     this.stats.distance = player.distance;
@@ -535,13 +545,14 @@ export class Game {
         struck.add(zombie);
         const part = hit.object.userData.part as HitPart;
         const result = zombie.hit(part, hit.point, weapon.damage);
-        this.effects.blood(hit.point, dir, result.killed ? 26 : 10);
+        this.effects.blood(hit.point, dir, result.killed ? 26 : result.crippled ? 20 : 10);
         if (zombie instanceof Zombie) zombie.shove(dir, weapon.recoil);
         end = hit.point;
         anyHit = true;
         if (result.killed) {
           this.stats.kills += 1;
           if (part === 'head') this.stats.headshots += 1;
+          this.killCam.kill(part === 'head');
           if (Math.random() < 0.6) {
             if (zombie instanceof Zombie) this.voice(zombie, 'death');
             else this.sfx.groan(zombie.position, 'death');
@@ -562,6 +573,8 @@ export class Game {
 
   private gameOver(): void {
     this.state = 'over';
+    this.killCam.cancel();
+    this.player.setZoom(0);
     this.offer = null;
     this.perkOffer = null;
     this.player.gunVisible = false;
