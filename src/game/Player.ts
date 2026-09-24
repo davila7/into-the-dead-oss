@@ -45,7 +45,7 @@ export class Player {
       model.position.sub(centre);
       model.position.y -= 0.03;
       this.gun.add(model);
-      this.muzzle.position.set(0, 0.01, box.min.z - centre.z);
+      this.muzzle.position.copy(findMuzzle(model, this.gun));
     } else {
       this.gun.add(slide, barrel, handle, hand);
       this.muzzle.position.set(0, 0.004, -0.11);
@@ -156,4 +156,26 @@ export class Player {
   muzzleWorldPosition(out: THREE.Vector3): THREE.Vector3 {
     return this.muzzle.getWorldPosition(out);
   }
+}
+
+/**
+ * Barrel tip of a generated viewmodel, in `space` coordinates: the centre of the
+ * vertices within 1 cm of the model's front-most (-Z) point.
+ */
+function findMuzzle(model: THREE.Object3D, space: THREE.Object3D): THREE.Vector3 {
+  model.updateWorldMatrix(true, true);
+  const toSpace = new THREE.Matrix4().copy(space.matrixWorld).invert();
+  const points: THREE.Vector3[] = [];
+  model.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const pos = mesh.geometry.attributes.position;
+    const m = new THREE.Matrix4().multiplyMatrices(toSpace, mesh.matrixWorld);
+    for (let i = 0; i < pos.count; i++) points.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(m));
+  });
+  if (points.length === 0) return new THREE.Vector3();
+  const front = points.reduce((min, p) => Math.min(min, p.z), Infinity);
+  const tip = points.filter((p) => p.z < front + 0.01);
+  const sum = tip.reduce((acc, p) => acc.add(p), new THREE.Vector3());
+  return sum.divideScalar(tip.length).setZ(front);
 }

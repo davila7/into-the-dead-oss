@@ -56,13 +56,13 @@ export const ASSETS = {
     zombieSlot('zombie-deputy', 1.8, 0.9),
     zombieSlot('zombie-hunter', 1.8, 0.9),
   ] as ZombieSlot[],
-  trees: [generatedSlot('tree-oak', 7), generatedSlot('tree-cottonwood', 11)] as ModelSlot[],
+  trees: [generatedSlot('tree-oak', 7), generatedSlot('tree-cottonwood', 8)] as ModelSlot[],
   scarecrow: generatedSlot('scarecrow', 2.6) as ModelSlot | undefined,
   /**
    * First-person hand + pistol. `height` here is the model's longest side in meters;
-   * the source image shows the barrel pointing left (-X), so yaw it to face -Z.
+   * the generated mesh has the barrel along -X (checked in a render), so yaw it to face -Z.
    */
-  weapon: generatedSlot('viewmodel-pistol', 0.3, -Math.PI / 2) as ModelSlot | undefined,
+  weapon: generatedSlot('viewmodel-pistol', 0.34, -Math.PI / 2) as ModelSlot | undefined,
 };
 
 export type TextureKey = keyof typeof ASSETS.textures;
