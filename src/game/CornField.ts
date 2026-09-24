@@ -109,7 +109,7 @@ export class CornField {
     const cfg = CONFIG.corn;
     const rand = mulberry32(8);
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-    applyWind(mat, cfg.height, 1.6);
+    applyWind(mat, cfg.height, 1.6, cfg.halfWidth);
     const count = Math.round(cfg.stalksPerTile * density);
     const geos = [makeStalkGeometry(rand), makeStalkGeometry(rand)];
     for (let i = 0; i < cfg.tileCount; i++) {
@@ -136,8 +136,8 @@ export class CornField {
     const r = this.rand;
     let any = false;
     for (let i = 0; i < tile.mesh.count; i++) {
-      const u = r() * 2 - 1;
-      const x = Math.sign(u) * Math.pow(Math.abs(u), 1.15) * halfWidth;
+      // Even spread; the shader wraps stalks sideways around the runner.
+      const x = (r() * 2 - 1) * halfWidth;
       const z = (r() - 0.5) * tileLength;
       const depth = this.depthInto(-(tile.mesh.position.z + z));
       // Ragged edges: the first few meters thin out instead of starting as a wall.

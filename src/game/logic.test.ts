@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
-import { applyHit, cornCover, mulberry32, planCourse, playerSpeed, spawnInterval, stepTowards, vaultProfile } from './logic';
+import {
+  applyHit,
+  cornCover,
+  maxAlive,
+  mulberry32,
+  packFor,
+  planCourse,
+  playerSpeed,
+  runnerChance,
+  spawnInterval,
+  stepTowards,
+  vaultProfile,
+  wrapAround,
+  zombieSpeed,
+} from './logic';
 
 describe('applyHit', () => {
   it('kills on a headshot regardless of health', () => {
@@ -26,12 +40,51 @@ describe('difficulty curves', () => {
   it('spawn interval shrinks with distance but respects the floor', () => {
     expect(spawnInterval(0)).toBe(CONFIG.zombies.baseInterval);
     expect(spawnInterval(300)).toBeLessThan(spawnInterval(0));
-    expect(spawnInterval(1e6)).toBe(CONFIG.zombies.minInterval);
+    // Still tightening late in a run, not plateaued after the first stretch.
+    expect(spawnInterval(4000)).toBeLessThan(spawnInterval(2000));
+    expect(spawnInterval(1e6)).toBeGreaterThan(CONFIG.zombies.minInterval);
+    expect(spawnInterval(1e6)).toBeCloseTo(CONFIG.zombies.minInterval, 2);
+  });
+
+  it('allows more zombies and bigger packs as the run goes on', () => {
+    expect(maxAlive(0)).toBe(CONFIG.zombies.maxAliveStart);
+    expect(maxAlive(1e6)).toBe(CONFIG.zombies.maxAliveEnd);
+    expect(packFor(0)).toEqual({ chance: CONFIG.difficulty.packChanceStart, size: CONFIG.difficulty.packSizeStart });
+    expect(packFor(1e6)).toEqual({ chance: CONFIG.difficulty.packChanceEnd, size: CONFIG.difficulty.packSizeEnd });
+  });
+
+  it('brings in runners only after the opening stretch', () => {
+    expect(runnerChance(0)).toBe(0);
+    expect(runnerChance(CONFIG.difficulty.runnerFrom)).toBe(0);
+    expect(runnerChance(1000)).toBeGreaterThan(0);
+    expect(runnerChance(1e6)).toBe(CONFIG.difficulty.runnerChanceMax);
+  });
+
+  it('runners are faster than any walker, and walkers speed up', () => {
+    expect(zombieSpeed(1e6, 1, false)).toBeLessThan(zombieSpeed(0, 0, true));
+    expect(zombieSpeed(1e6, 0.5, false)).toBeGreaterThan(zombieSpeed(0, 0.5, false));
   });
 
   it('player speed ramps up to the cap', () => {
     expect(playerSpeed(0)).toBe(CONFIG.player.startSpeed);
     expect(playerSpeed(1e6)).toBe(CONFIG.player.maxSpeed);
+  });
+});
+
+describe('wrapAround', () => {
+  it('keeps values within half of the centre', () => {
+    for (const x of [-500, -31, -10, 0, 29.9, 30, 95, 1234.5]) {
+      const w = wrapAround(x, 7, 30);
+      expect(w).toBeGreaterThanOrEqual(7 - 30);
+      expect(w).toBeLessThan(7 + 30);
+      // Only ever shifts by whole periods.
+      const periods = (w - x) / 60;
+      expect(periods).toBeCloseTo(Math.round(periods), 9);
+    }
+  });
+
+  it('leaves nearby values alone', () => {
+    expect(wrapAround(12, 10, 30)).toBe(12);
   });
 });
 
