@@ -21,6 +21,9 @@ export class Zombie {
   private readonly speed: number;
   private flinch = 0;
   private deathTime = 0;
+  private readonly knock = new THREE.Vector3();
+  private stagger = 0;
+  private recover = 0;
   /** Seconds until this zombie groans again (driven by the game's audio). */
   groanIn = 1 + Math.random() * 6;
   /** Set for the frame in which the zombie starts its lunge. */
@@ -51,6 +54,8 @@ export class Zombie {
   /** `slow` scales walking speed, e.g. while clambering over a fence. */
   update(dt: number, player: THREE.Vector3, slow = 1): boolean {
     this.startedLunge = false;
+    this.slide(dt);
+    slow *= this.staggerFactor(dt);
     if (!this.alive) {
       this.updateDeath(dt);
       return false;
@@ -94,5 +99,34 @@ export class Zombie {
     if (r.killed) this.state = 'dying';
     else this.flinch = 0.25;
     return { killed: r.killed, point, part };
+  }
+
+  /** Knocks the body back along the shot's `dir`; `force` is the weapon's recoil. */
+  shove(dir: THREE.Vector3, force: number): void {
+    const cfg = CONFIG.hitReaction;
+    const len = Math.hypot(dir.x, dir.z) || 1;
+    this.knock.x += (dir.x / len) * cfg.knockback * force;
+    this.knock.z += (dir.z / len) * cfg.knockback * force;
+    this.knock.clampLength(0, cfg.knockbackMax);
+    this.stagger = Math.max(this.stagger, cfg.staggerTime * Math.min(1, force));
+    this.recover = cfg.recoverTime;
+  }
+
+  /** Carries the body along its knockback, easing out. */
+  private slide(dt: number): void {
+    if (this.knock.lengthSq() < 1e-4) return;
+    this.root.position.addScaledVector(this.knock, dt);
+    this.knock.multiplyScalar(Math.exp(-CONFIG.hitReaction.knockDamping * dt));
+  }
+
+  /** Speed multiplier: 0 while staggered, then back up to 1. */
+  private staggerFactor(dt: number): number {
+    if (this.stagger > 0) {
+      this.stagger -= dt;
+      return 0;
+    }
+    if (this.recover <= 0) return 1;
+    this.recover = Math.max(0, this.recover - dt);
+    return 1 - this.recover / CONFIG.hitReaction.recoverTime;
   }
 }

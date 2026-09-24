@@ -17,6 +17,16 @@ export const CONFIG = {
     bodyHealth: 2,
     range: 60,
   },
+  /** How a zombie reacts to a bullet, alive or falling. Scaled by the weapon's recoil. */
+  hitReaction: {
+    /** Knockback speed (m/s) per point of recoil, bleeding off at `knockDamping` per second. */
+    knockback: 5.5,
+    knockbackMax: 9,
+    knockDamping: 6,
+    /** Stands still this long after a hit, then eases back to full speed over `recoverTime`. */
+    staggerTime: 0.35,
+    recoverTime: 0.45,
+  },
   /** Course events, all in meters of distance run. */
   fences: {
     first: 180,

@@ -1,81 +1,9 @@
 import * as THREE from 'three';
+import { flameTexture, starTexture } from './vfxTextures';
 
 /** How long one flash burns, in seconds. Real flashes last a frame or two. */
 const DURATION = 0.07;
 const VARIANTS = 4;
-
-function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return [c, c.getContext('2d')!];
-}
-
-function texture(c: HTMLCanvasElement): THREE.CanvasTexture {
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-/** Front view of the flash: a white-hot core with irregular orange petals. */
-function starTexture(): THREE.CanvasTexture {
-  const size = 128;
-  const r = size / 2;
-  const [c, ctx] = canvas(size, size);
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.translate(r, r);
-
-  const petals = 5 + Math.floor(Math.random() * 4);
-  for (let i = 0; i < petals; i++) {
-    const len = r * (0.55 + Math.random() * 0.45);
-    ctx.save();
-    ctx.rotate((i / petals) * Math.PI * 2 + (Math.random() - 0.5) * 0.6);
-    ctx.scale(1, 0.12 + Math.random() * 0.12);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, len);
-    g.addColorStop(0, 'rgba(255,230,170,0.9)');
-    g.addColorStop(0.35, 'rgba(255,150,50,0.55)');
-    g.addColorStop(1, 'rgba(200,60,10,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(len * 0.35, 0, len, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.42);
-  core.addColorStop(0, 'rgba(255,255,245,1)');
-  core.addColorStop(0.3, 'rgba(255,220,140,0.85)');
-  core.addColorStop(1, 'rgba(255,110,30,0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
-  ctx.fill();
-  return texture(c);
-}
-
-/** Side view of the flame jet: bright at the barrel (bottom), tapering and flickering to the tip. */
-function flameTexture(): THREE.CanvasTexture {
-  const w = 64;
-  const h = 128;
-  const [c, ctx] = canvas(w, h);
-  ctx.globalCompositeOperation = 'lighter';
-  const blobs = 7;
-  for (let i = 0; i < blobs; i++) {
-    const t = i / (blobs - 1);
-    const y = h * (1 - t * 0.85);
-    const x = w / 2 + (Math.random() - 0.5) * w * 0.25 * t;
-    const rad = w * (0.42 - t * 0.28) * (0.8 + Math.random() * 0.4);
-    const a = 0.75 * (1 - t) + 0.15;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    g.addColorStop(0, `rgba(255,${Math.round(235 - t * 90)},${Math.round(170 - t * 140)},${a})`);
-    g.addColorStop(1, 'rgba(180,50,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  return texture(c);
-}
 
 function additive(map: THREE.Texture): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
@@ -161,24 +89,4 @@ export class MuzzleFlash extends THREE.Group {
     this.light.intensity = 0;
     this.visible = false;
   }
-}
-
-/** Soft, lumpy grey puff for gun smoke. */
-export function smokeTexture(): THREE.CanvasTexture {
-  const size = 64;
-  const r = size / 2;
-  const [c, ctx] = canvas(size, size);
-  for (let i = 0; i < 9; i++) {
-    const x = r + (Math.random() - 0.5) * r * 0.8;
-    const y = r + (Math.random() - 0.5) * r * 0.8;
-    const rad = r * (0.35 + Math.random() * 0.3);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    g.addColorStop(0, 'rgba(255,255,255,0.35)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  return texture(c);
 }
