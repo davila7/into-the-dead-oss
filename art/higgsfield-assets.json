@@ -69,6 +69,15 @@
       "image_job": "270739e0-a61a-457a-b5d8-831329cda113",
       "model_job": "c99c28b1-59d9-4ee4-954f-0b6f42e36637",
       "prompt": "Creepy old scarecrow, burlap sack head with stitched face, tattered plaid shirt, arms on a wooden cross post"
+    },
+    {
+      "name": "viewmodel-pistol",
+      "out": "public/assets/models/viewmodel-pistol.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_130605_e5721e06-1998-4e5a-9ff0-eec5804d2ac4.glb",
+      "image_job": "a62441e7-b1f6-4b03-a688-acb787f8fb9e",
+      "model_job": "e5721e06-1998-4e5a-9ff0-eec5804d2ac4",
+      "animation": null,
+      "prompt": "3D game asset reference: a right hand in a worn brown leather work glove gripping a scuffed black semi-automatic pistol, finger resting beside the trigger, seen exactly from the side (right-side profile), barrel pointing to the left, wrist and a bit of dark denim jacket sleeve visible at the right edge, whole object visible and centered. Plain flat light grey background, soft even lighting, no shadows, no text."
     }
   ]
 }
