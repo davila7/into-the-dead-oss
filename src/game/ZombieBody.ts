@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import type { LoadedModel, LoadedZombie } from '../assets/manifest';
+import { CONFIG } from './config';
 import { clamp, type HitPart } from './logic';
 
 /** What a zombie looks like. The Zombie class owns movement, health and the fall. */
@@ -8,8 +9,11 @@ export interface ZombieBody {
   readonly object: THREE.Object3D;
   /** Meshes the gun raycasts against; each carries `userData.part`. */
   readonly hitMeshes: THREE.Mesh[];
-  animate(dt: number, speed: number, lunging: boolean, flinch: number): void;
+  /** `crawling`: a leg is gone and the Zombie class has laid the body face down. */
+  animate(dt: number, speed: number, lunging: boolean, flinch: number, crawling?: boolean): void;
   animateDeath(dt: number): void;
+  /** Takes off the leg on the side of `localX` (object space, +X is the body's left). */
+  dismember?(localX: number): void;
 }
 
 function tagHit(mesh: THREE.Mesh, part: HitPart, owner: unknown): THREE.Mesh {
@@ -85,8 +89,8 @@ export class PrimitiveBody implements ZombieBody {
     }
     this.legL.position.set(-0.13, 0.9, 0);
     this.legR.position.set(0.13, 0.9, 0);
-    this.legL.add(part(k.limb, k.pants, 'body'));
-    this.legR.add(part(k.limb, k.pants, 'body'));
+    this.legL.add(part(k.limb, k.pants, 'legs'));
+    this.legR.add(part(k.limb, k.pants, 'legs'));
     // Classic zombie pose: arms reaching forward (+Z faces the player).
     this.armL.position.set(-0.33, 1.52, 0);
     this.armR.position.set(0.33, 1.52, 0);
@@ -103,7 +107,16 @@ export class PrimitiveBody implements ZombieBody {
     this.object.scale.setScalar(size);
   }
 
-  animate(dt: number, speed: number, lunging: boolean, flinch: number): void {
+  dismember(localX: number): void {
+    // legL sits at -X, legR at +X; leave a stump at the hip.
+    (localX < 0 ? this.legL : this.legR).scale.y = CONFIG.crawl.stump;
+  }
+
+  animate(dt: number, speed: number, lunging: boolean, flinch: number, crawling = false): void {
+    if (crawling) {
+      this.crawl(dt, speed, flinch);
+      return;
+    }
     this.phase += dt * (2 + speed * 2.2);
     const swing = Math.sin(this.phase) * 0.55;
     this.legL.rotation.x = swing;
@@ -114,6 +127,22 @@ export class PrimitiveBody implements ZombieBody {
     this.body.rotation.z = Math.sin(this.phase) * 0.06;
     this.head.rotation.z = Math.sin(this.phase * 0.5) * 0.2;
     this.body.rotation.x = -flinch * 1.6;
+  }
+
+  /** Face down, hauling itself along hand over hand, the leg that's left dragging behind. */
+  private crawl(dt: number, speed: number, flinch: number): void {
+    this.phase += dt * (2.5 + speed * 3);
+    const pull = Math.sin(this.phase);
+    // -PI points an arm along the body's +Y, which now runs along the ground ahead.
+    this.armL.rotation.x = -2.75 + pull * 0.55;
+    this.armR.rotation.x = -2.75 - pull * 0.55;
+    this.legL.rotation.x = 0.1 + pull * 0.08;
+    this.legR.rotation.x = 0.1 - pull * 0.08;
+    this.body.rotation.z = pull * 0.1;
+    this.body.rotation.x = -flinch * 0.8;
+    // Head craned up to keep its eyes on the player.
+    this.head.rotation.x = -1 + Math.sin(this.phase * 0.5) * 0.1;
+    this.head.rotation.z = pull * 0.15;
   }
 
   animateDeath(dt: number): void {
@@ -146,6 +175,9 @@ export class ModelBody implements ZombieBody {
   private readonly headBone?: THREE.Object3D;
   private readonly headProxy: THREE.Mesh;
   private readonly model: THREE.Object3D;
+  /** Knee bones by side (Meshy rigs name them LeftLeg / RightLeg); a severed one is scaled to nothing. */
+  private readonly knees: { left?: THREE.Object3D; right?: THREE.Object3D };
+  private readonly severed: THREE.Object3D[] = [];
 
   constructor(owner: unknown, source: LoadedZombie) {
     const height = source.slot.height;
@@ -164,6 +196,7 @@ export class ModelBody implements ZombieBody {
       }
     });
     this.headBone = this.findBone(/head/i);
+    this.knees = { left: this.findBone(/^left_?leg$/i), right: this.findBone(/^right_?leg$/i) };
 
     this.mixer = new THREE.AnimationMixer(this.model);
     const clip = source.animations[0];
@@ -177,10 +210,13 @@ export class ModelBody implements ZombieBody {
     this.headProxy.position.y = height * 0.92;
     const body = tagHit(new THREE.Mesh(bodyProxyGeo, proxyMaterial), 'body', owner);
     const girth = source.slot.girth ?? 1;
-    body.scale.set(height * 0.3 * girth, height * 0.8, height * 0.2 * girth);
-    body.position.y = height * 0.42;
-    this.object.add(this.headProxy, body);
-    this.hitMeshes.push(this.headProxy, body);
+    body.scale.set(height * 0.3 * girth, height * 0.37, height * 0.2 * girth);
+    body.position.y = height * 0.635;
+    const legs = tagHit(new THREE.Mesh(bodyProxyGeo, proxyMaterial), 'legs', owner);
+    legs.scale.set(height * 0.26 * girth, height * 0.45, height * 0.18 * girth);
+    legs.position.y = height * 0.225;
+    this.object.add(this.headProxy, body, legs);
+    this.hitMeshes.push(this.headProxy, body, legs);
     this.object.scale.setScalar(0.94 + Math.random() * 0.12);
     this.headProxy.scale.multiplyScalar(Math.sqrt(girth));
   }
@@ -193,11 +229,23 @@ export class ModelBody implements ZombieBody {
     return found;
   }
 
-  animate(dt: number, speed: number, lunging: boolean, flinch: number): void {
-    this.action.timeScale = clamp(speed / this.clipSpeed, 0.5, 2.6);
+  dismember(localX: number): void {
+    const knee = localX >= 0 ? this.knees.left : this.knees.right;
+    if (knee && !this.severed.includes(knee)) this.severed.push(knee);
+  }
+
+  /** The clip keys bone transforms every frame, so re-apply the missing shins after it. */
+  private sever(): void {
+    for (const knee of this.severed) knee.scale.setScalar(1e-3);
+  }
+
+  animate(dt: number, speed: number, lunging: boolean, flinch: number, crawling = false): void {
+    // Crawlers paw along slowly with the walk clip; the Zombie class has laid them down.
+    this.action.timeScale = clamp(speed / this.clipSpeed, crawling ? 0.35 : 0.5, 2.6);
     this.mixer.update(dt);
+    this.sever();
     // Lean into the lunge, rock back when shot.
-    this.model.rotation.x = (lunging ? 0.25 : 0) - flinch * 1.2;
+    this.model.rotation.x = (lunging ? 0.25 : 0) - flinch * (crawling ? 0.5 : 1.2);
     if (this.headBone) {
       this.object.updateWorldMatrix(true, true);
       this.headProxy.position.copy(this.object.worldToLocal(this.headBone.getWorldPosition(tmp)));
@@ -208,6 +256,7 @@ export class ModelBody implements ZombieBody {
     // Freeze the walk quickly; the Zombie class tips the whole body over.
     this.action.timeScale = Math.max(0, this.action.timeScale - dt * 6);
     this.mixer.update(dt);
+    this.sever();
     this.model.rotation.x = THREE.MathUtils.lerp(this.model.rotation.x, 0, clamp(dt * 8, 0, 1));
   }
 }
