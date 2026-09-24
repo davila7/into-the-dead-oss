@@ -115,6 +115,9 @@ function makeFarmSilhouettes(): { group: THREE.Group; windmillRotor: THREE.Objec
   return { group, windmillRotor: rotor, beacon };
 }
 
+/** Fog colour deep inside the corn. */
+const CORN_FOG = new THREE.Color(0x121510);
+
 /**
  * Night sky, moon, horizon silhouettes, rolling ground mist and chaff drifting on
  * the wind. Everything here follows the player so it never runs out.
@@ -273,6 +276,14 @@ void main() {
       }
     }
     pos.needsUpdate = true;
+  }
+
+  /** Thickens and darkens the fog while inside the corn (0 = open field, 1 = deep in). */
+  setCover(scene: THREE.Scene, cover: number): void {
+    const fog = scene.fog as THREE.FogExp2;
+    const cfg = CONFIG.atmosphere;
+    fog.density = cfg.fogDensity + (CONFIG.corn.fogDensity - cfg.fogDensity) * cover;
+    fog.color.setHex(cfg.horizonColor).lerp(CORN_FOG, cover);
   }
 
   reset(player: THREE.Vector3): void {

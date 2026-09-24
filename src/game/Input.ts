@@ -6,6 +6,8 @@ export class Input {
   private fireQueued = false;
   private reloadQueued = false;
   private pauseQueued = false;
+  private choiceQueued: 'take' | 'keep' | null = null;
+  private pointerHeld = false;
 
   constructor(private readonly canvas: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -14,16 +16,26 @@ export class Input {
       if (e.code === 'Space') this.fireQueued = true;
       if (e.code === 'KeyR') this.reloadQueued = true;
       if (e.code === 'KeyP' || e.code === 'Escape') this.pauseQueued = true;
+      if (e.code === 'KeyE' || e.code === 'Enter') this.choiceQueued = 'take';
+      if (e.code === 'KeyQ') this.choiceQueued = 'keep';
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => {
+      this.keys.clear();
+      this.pointerHeld = false;
+    });
 
     canvas.addEventListener('pointermove', (e) => this.setAim(e));
     canvas.addEventListener('pointerdown', (e) => {
       this.setAim(e);
-      if (e.button === 0) this.fireQueued = true;
+      if (e.button === 0) {
+        this.fireQueued = true;
+        this.pointerHeld = true;
+      }
     });
+    window.addEventListener('pointerup', () => (this.pointerHeld = false));
+    window.addEventListener('pointercancel', () => (this.pointerHeld = false));
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -55,6 +67,22 @@ export class Input {
     return Math.max(-1, Math.min(1, s));
   }
 
+  /** Trigger held down (click or Space), for automatic weapons. */
+  get fireHeld(): boolean {
+    return this.pointerHeld || this.keys.has('Space');
+  }
+
+  /** Queues a choice from the on-screen offer buttons. */
+  choose(choice: 'take' | 'keep'): void {
+    this.choiceQueued = choice;
+  }
+
+  consumeChoice(): 'take' | 'keep' | null {
+    const v = this.choiceQueued;
+    this.choiceQueued = null;
+    return v;
+  }
+
   consumeFire(): boolean {
     const v = this.fireQueued;
     this.fireQueued = false;
@@ -75,5 +103,6 @@ export class Input {
 
   clearQueued(): void {
     this.fireQueued = this.reloadQueued = this.pauseQueued = false;
+    this.choiceQueued = null;
   }
 }

@@ -16,8 +16,19 @@
           <span>RELOADING</span>
           <div class="bar"><div id="hud-reload-bar"></div></div>
         </div>
+        <div id="hud-weapon"></div>
         <div id="hud-ammo"></div>
       </div>
+    </div>
+
+    <div id="offer" hidden>
+      <div class="offer-title">Found a <b id="offer-name"></b></div>
+      <div id="offer-blurb"></div>
+      <div class="offer-buttons">
+        <button id="offer-take">Take it <kbd>E</kbd></button>
+        <button id="offer-keep">Keep <span id="offer-current"></span> <kbd>Q</kbd></button>
+      </div>
+      <div class="offer-timer"><div id="offer-timer-bar"></div></div>
     </div>
 
     <div id="crosshair"></div>
@@ -34,6 +45,7 @@
         <li><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> steer</li>
         <li><kbd>Click</kbd> / <kbd>Space</kbd> shoot at the crosshair</li>
         <li><kbd>R</kbd> reload · <kbd>P</kbd> pause</li>
+        <li>Grab weapons in the field: <kbd>E</kbd> take · <kbd>Q</kbd> keep yours</li>
         <li>Headshots kill instantly</li>
       </ul>
     </section>

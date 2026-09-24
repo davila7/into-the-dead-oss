@@ -30,9 +30,23 @@ density. Touch devices default to low.
 | Steer  | `A` `D` or `←` `→`       | On-screen ◀ ▶ buttons |
 | Shoot  | Click, or `Space` at the crosshair | Tap the zombie |
 | Reload | `R` (auto when empty)    | Automatic             |
+| Take / keep a found weapon | `E` / `Q` | On-screen buttons |
 | Pause  | `P` / `Esc`              |                       |
 
 Headshots kill instantly; body shots take two hits. A zombie that reaches you ends the run.
+
+As the run goes on the course throws in:
+
+- **Weapons** lying off the running line under a faint beam: a pump shotgun, a lever rifle
+  (one-shot body kills that pierce) and an SMG (hold to fire). Touch one and time slows while
+  you choose to take it (dropping your gun) or keep what you have.
+- **Broken fences** across the whole field. You vault them automatically, but it slows you
+  down while the dead keep coming.
+- **Corn**: tall, black, blighted stretches where the fog closes in and you mostly hear the
+  zombies before you see them.
+
+Sound is synthesized with Web Audio: positional zombie groans and snarls, footsteps in the
+wheat, corn leaves dragging past, weapon swaps and shots, fence creaks.
 
 ## Layout
 
@@ -44,7 +58,10 @@ src/
     config.ts        all gameplay tunables (speeds, spawn rates, ammo, fog)
     logic.ts         pure, unit-tested rules (hits, difficulty curves, movement)
     Game.ts          state machine, main loop, spawning, shooting
-    Player.ts        first-person runner camera and pistol
+    Player.ts        first-person runner camera, viewmodels, fence vault
+    weapons.ts       weapon stats (pistol, shotgun, rifle, SMG)
+    Course.ts        fences and weapon pickups placed from the course plan
+    CornField.ts     instanced black corn over the planned corn stretches
     Zombie.ts        zombie movement, lunge, health and death fall
     World.ts         ground, dead trees and scarecrows recycled ahead of the player
     WheatField.ts    instanced wheat tiles with a wind + parting vertex shader
@@ -69,6 +86,6 @@ scripts/             asset download/optimisation
 ## Roadmap
 
 - Replace primitive zombies with generated models/textures
-- Obstacles (fences, cars) and pickups (ammo, weapons)
-- More weapons and a companion dog
+- More obstacles (cars) and ammo pickups
+- A companion dog
 - Mobile-first controls and polish

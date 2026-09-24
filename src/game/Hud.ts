@@ -1,4 +1,4 @@
-import { CONFIG } from './config';
+import type { WeaponDef } from './weapons';
 
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -33,15 +33,53 @@ export class Hud {
     over: $('screen-over'),
   };
   private readonly overStats = $('over-stats');
-  private readonly pips: HTMLElement[] = [];
+  private readonly weaponName = $('hud-weapon');
+  private readonly offer = $('offer');
+  private readonly offerName = $('offer-name');
+  private readonly offerBlurb = $('offer-blurb');
+  private readonly offerCurrent = $('offer-current');
+  private readonly offerBar = $('offer-timer-bar');
+  readonly offerTake = $('offer-take');
+  readonly offerKeep = $('offer-keep');
+  private pips: HTMLElement[] = [];
+  private counter?: HTMLElement;
+  private magazine = 0;
 
-  constructor() {
-    for (let i = 0; i < CONFIG.gun.magazine; i++) {
-      const pip = document.createElement('span');
-      pip.className = 'pip';
-      this.ammo.appendChild(pip);
-      this.pips.push(pip);
+  /** Rebuilds the ammo readout for a weapon: pips for small magazines, a counter otherwise. */
+  setWeapon(weapon: WeaponDef): void {
+    this.weaponName.textContent = weapon.name;
+    this.magazine = weapon.magazine;
+    this.ammo.replaceChildren();
+    this.pips = [];
+    this.counter = undefined;
+    if (weapon.magazine <= 8) {
+      for (let i = 0; i < weapon.magazine; i++) {
+        const pip = document.createElement('span');
+        pip.className = weapon.id === 'shotgun' ? 'pip shell' : 'pip';
+        this.ammo.appendChild(pip);
+        this.pips.push(pip);
+      }
+    } else {
+      this.counter = document.createElement('span');
+      this.counter.className = 'ammo-count';
+      this.ammo.appendChild(this.counter);
     }
+  }
+
+  showOffer(found: WeaponDef, current: WeaponDef): void {
+    this.offerName.textContent = found.name;
+    this.offerBlurb.textContent = found.blurb;
+    this.offerCurrent.textContent = current.name;
+    this.offer.hidden = false;
+  }
+
+  /** `left` is 1 when the offer appears and 0 when it lapses. */
+  updateOffer(left: number): void {
+    this.offerBar.style.width = `${Math.round(left * 100)}%`;
+  }
+
+  hideOffer(): void {
+    this.offer.hidden = true;
   }
 
   show(screen: Screen | null): void {
@@ -53,6 +91,7 @@ export class Hud {
     this.distance.textContent = `${Math.floor(stats.distance)} m`;
     this.kills.textContent = `${stats.kills}`;
     this.pips.forEach((pip, i) => pip.classList.toggle('spent', i >= ammo));
+    if (this.counter) this.counter.textContent = `${ammo} / ${this.magazine}`;
     this.reload.hidden = reloadProgress === null;
     if (reloadProgress !== null) this.reloadBar.style.width = `${Math.round(reloadProgress * 100)}%`;
   }
@@ -69,6 +108,7 @@ export class Hud {
   }
 
   gameOver(stats: RunStats): void {
+    this.hideOffer();
     this.overStats.innerHTML = `
       <div><b>${Math.floor(stats.distance)} m</b><span>distance</span></div>
       <div><b>${stats.kills}</b><span>kills</span></div>
