@@ -29,6 +29,24 @@
       "prompt": "Undead heavy-set trucker, grimy white t-shirt, open brown canvas work jacket, ragged jeans, cowboy boots, A-pose"
     },
     {
+      "name": "zombie-deputy",
+      "out": "public/assets/models/zombie-deputy.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_022535_a1907c98-0f15-46e0-bbb8-28318eb0cf05.glb",
+      "image_job": "75097d49-852f-4e47-8977-4a9088603ecf",
+      "model_job": "a1907c98-0f15-46e0-bbb8-28318eb0cf05",
+      "animation": "Injured_Walk_inplace (637)",
+      "prompt": "Undead small-town sheriff's deputy, dusty tan uniform shirt with a star badge, dark brown trousers, A-pose"
+    },
+    {
+      "name": "zombie-hunter",
+      "out": "public/assets/models/zombie-hunter.glb",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_022538_58396151-b55d-465d-be71-b5d661580e24.glb",
+      "image_job": "de3ff4c3-080b-41c7-88cb-ecf990962ac1",
+      "model_job": "58396151-b55d-465d-be71-b5d661580e24",
+      "animation": "Unsteady_Walk_inplace (678)",
+      "prompt": "Gaunt undead deer hunter, ragged olive camouflage jacket under a faded blaze-orange vest, khaki cargo pants, A-pose"
+    },
+    {
       "name": "tree-oak",
       "out": "public/assets/models/tree-oak.glb",
       "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3F9bcIq4eN4XX2pManaiP0cDn25/hf_20260924_013617_7903fc55-dc63-42a6-b927-a2cb0cb2ebf1.glb",
