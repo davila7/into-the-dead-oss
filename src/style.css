@@ -278,3 +278,23 @@ kbd {
 #over-stats div { display: flex; flex-direction: column; }
 #over-stats b { font-size: 32px; }
 #over-stats span { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.7; }
+
+/* Bullet cam: cinematic bars, no crosshair or HUD while the replay runs */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: #000;
+  pointer-events: none;
+  z-index: 5;
+  transition: height 0.25s ease-out;
+}
+body::before { top: 0; }
+body::after { bottom: 0; }
+body.bullet-cam::before,
+body.bullet-cam::after { height: 11vh; }
+body.bullet-cam #crosshair,
+body.bullet-cam #hud { visibility: hidden; }

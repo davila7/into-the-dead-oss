@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { LoadedAssets } from '../assets/manifest';
 import { Atmosphere } from './Atmosphere';
+import { BulletCam } from './BulletCam';
 import { CONFIG } from './config';
 import { CornField } from './CornField';
 import { Course } from './Course';
@@ -95,6 +96,7 @@ export class Game {
   private readonly hud = new Hud();
   private readonly sfx = new Sfx();
   private readonly killCam = new KillCam();
+  private readonly bulletCam: BulletCam;
   private readonly raycaster = new THREE.Raycaster();
   readonly zombies: Zombie[] = [];
   private spawnTimer = 0;
@@ -123,6 +125,8 @@ export class Game {
     this.player = new Player(window.innerWidth / window.innerHeight, assets.weapons);
     this.scene.add(this.player.camera);
     this.effects = new Effects(this.scene);
+    this.bulletCam = new BulletCam(this.scene);
+    this.bulletCam.setAspect(window.innerWidth / window.innerHeight);
     this.input = new Input(canvas);
 
     this.input.bindSteerButton(this.hud.steerLeft, -1);
@@ -147,6 +151,7 @@ export class Game {
     const h = window.innerHeight;
     this.player.camera.aspect = w / h;
     this.player.camera.updateProjectionMatrix();
+    this.bulletCam.setAspect(w / h);
     this.renderer.setSize(w, h, false);
   }
 
@@ -178,6 +183,7 @@ export class Game {
     this.effects.reset();
     this.stats.distance = this.stats.kills = this.stats.headshots = 0;
     this.killCam.reset();
+    this.bulletCam.reset();
     this.player.setZoom(0);
     this.spawnTimer = 0;
     // A few zombies already shambling in the fog so the first seconds aren't empty.
@@ -345,7 +351,7 @@ export class Game {
     this.atmosphere.update(dt, this.elapsed, this.player.position);
     this.sfx.crickets(this.state === 'playing' || this.state === 'paused' ? cricketLevel(this.nearestZombie()) : 1);
     this.hud.moveCrosshair(this.input.aim.x, this.input.aim.y);
-    this.renderer.render(this.scene, this.player.camera);
+    this.renderer.render(this.scene, this.bulletCam.active ? this.bulletCam.camera : this.player.camera);
     if (this.offer && this.state === 'playing') this.preview.render(dt);
   }
 
@@ -353,6 +359,8 @@ export class Game {
     const { player, input } = this;
     let dt = realDt;
     this.killCam.update(realDt);
+    this.bulletCam.update(realDt);
+    document.body.classList.toggle('bullet-cam', this.bulletCam.active);
     // Choosing a perk or a weapon: the world crawls in slow motion until the player decides.
     // That slow motion takes over from any kill cam.
     if (this.perkOffer) {
@@ -373,7 +381,7 @@ export class Game {
       else if (this.offer.left <= 0) this.closeOffer(false);
       else dt *= CONFIG.pickups.decisionTimeScale;
     }
-    if (!this.offer && !this.perkOffer) dt *= this.killCam.timeScale;
+    if (!this.offer && !this.perkOffer) dt *= this.bulletCam.active ? this.bulletCam.timeScale : this.killCam.timeScale;
     player.setZoom(this.killCam.zoom);
 
     player.update(dt, input.steer);
@@ -385,6 +393,8 @@ export class Game {
     if (event === 'vault' && !player.vaulting) {
       player.vault();
       this.sfx.vault();
+    } else if (this.bulletCam.active) {
+      // Offers wait for the replay to finish.
     } else if (event === 'pickup' && !this.offer && !this.perkOffer && this.course.pickup) {
       this.openOffer(this.course.pickup.weapon);
       this.course.consumePickup();
@@ -410,7 +420,7 @@ export class Game {
     this.raycaster.setFromCamera(this.aimNdc, player.camera);
     player.aimAt(this.raycaster.ray.at(30, this.tmpA));
 
-    if (this.offer || this.perkOffer) {
+    if (this.offer || this.perkOffer || this.bulletCam.active) {
       input.consumeFire();
       input.consumeReload();
     } else {
@@ -545,14 +555,16 @@ export class Game {
         struck.add(zombie);
         const part = hit.object.userData.part as HitPart;
         const result = zombie.hit(part, hit.point, weapon.damage);
-        this.effects.blood(hit.point, dir, result.killed ? 26 : result.crippled ? 20 : 10);
+        // Now and then a headshot kill is replayed from the bullet's side; the blood waits for it to land.
+        const replay = result.killed && part === 'head' && this.startBulletCam(muzzle, hit.point, dir, hit.object);
+        if (!replay) this.effects.blood(hit.point, dir, result.killed ? 26 : result.crippled ? 20 : 10);
         if (zombie instanceof Zombie) zombie.shove(dir, weapon.recoil);
         end = hit.point;
         anyHit = true;
         if (result.killed) {
           this.stats.kills += 1;
           if (part === 'head') this.stats.headshots += 1;
-          this.killCam.kill(part === 'head');
+          if (!replay) this.killCam.kill(part === 'head');
           if (Math.random() < 0.6) {
             if (zombie instanceof Zombie) this.voice(zombie, 'death');
             else this.sfx.groan(zombie.position, 'death');
@@ -561,7 +573,7 @@ export class Game {
         if (struck.size >= weapon.pierce) break;
       }
       // One tracer per shot is enough, even for the shotgun.
-      if (p === 0) this.effects.shot(muzzle, end ?? this.raycaster.ray.at(weapon.range, new THREE.Vector3()));
+      if (p === 0 && !this.bulletCam.active) this.effects.shot(muzzle, end ?? this.raycaster.ray.at(weapon.range, new THREE.Vector3()));
     }
     // Restore the aim ray for the rest of the frame.
     this.raycaster.set(origin, aim);
@@ -571,8 +583,25 @@ export class Game {
     if (player.ammo === 0 && player.startReload()) this.sfx.reload();
   }
 
+  /** Tries to start a bullet-cam replay of a headshot kill; returns true if it did. */
+  private startBulletCam(muzzle: THREE.Vector3, head: THREE.Vector3, dir: THREE.Vector3, target: THREE.Object3D): boolean {
+    const at = head.clone();
+    const away = dir.clone();
+    const started = this.bulletCam.tryStart(muzzle, at, target, () => {
+      this.effects.blood(at, away, 40);
+      this.sfx.hit();
+    });
+    if (started) {
+      this.killCam.cancel();
+      this.effects.clearTracer();
+    }
+    return started;
+  }
+
   private gameOver(): void {
     this.state = 'over';
+    this.bulletCam.stop();
+    document.body.classList.remove('bullet-cam');
     this.killCam.cancel();
     this.player.setZoom(0);
     this.offer = null;
