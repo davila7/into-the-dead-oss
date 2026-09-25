@@ -265,6 +265,21 @@ body.playing #crosshair[hidden] { display: none; }
   line-height: 2;
   opacity: 0.85;
 }
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #d8e27a;
+  text-decoration: none;
+  border: 1px solid #d8e27a88;
+  border-radius: 4px;
+}
+.github-link:hover { color: #0e1014; background: #d8e27a; }
 kbd {
   display: inline-block;
   padding: 1px 6px;
