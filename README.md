@@ -1,5 +1,7 @@
 # Into the Dead OSS
 
+<img width="1223" height="751" alt="Screenshot 2026-09-24 at 20 01 46" src="https://github.com/user-attachments/assets/3ea6b516-75a4-4b0f-835c-9d0439b59b98" />
+
 An open-source, browser-based take on the *Into the Dead* formula, built with
 [three.js](https://threejs.org/), Vite and TypeScript. You run through a dark Midwest
 wheat field at night, zombies close in through the mist, and you steer and shoot to
