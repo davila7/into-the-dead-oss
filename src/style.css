@@ -313,3 +313,69 @@ body.bullet-cam::before,
 body.bullet-cam::after { height: 11vh; }
 body.bullet-cam #crosshair,
 body.bullet-cam #hud { visibility: hidden; }
+
+/* Accounts and leaderboard */
+#account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+}
+#account[hidden], #over-save[hidden], .leaderboard[hidden] { display: none; }
+.account-hint { opacity: 0.75; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; }
+.account-name { font-weight: 700; }
+.signin { display: flex; gap: 8px; }
+.screen .signin button,
+.screen .signout {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #e8e4da;
+  background: #ffffff14;
+  border: 1px solid #ffffff55;
+}
+.screen .signin button:hover,
+.screen .signout:hover { color: #0e1014; background: #d8e27a; }
+#over-save {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+.leaderboard {
+  width: min(340px, 100%);
+  font-size: 14px;
+}
+.leaderboard h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  text-align: center;
+}
+.leaderboard ol { margin: 0; padding: 0; list-style: none; counter-reset: rank; }
+.leaderboard li {
+  display: grid;
+  grid-template-columns: 2em 1fr auto auto;
+  gap: 10px;
+  padding: 3px 8px;
+  counter-increment: rank;
+}
+.leaderboard li::before { content: counter(rank); opacity: 0.6; }
+.leaderboard li:nth-child(odd) { background: #ffffff0a; }
+.leaderboard li.empty { display: block; text-align: center; opacity: 0.6; }
+.leaderboard li.empty::before { content: none; }
+.leaderboard .name { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard .score { font-weight: 700; color: #d8e27a; }
+.leaderboard .kills { opacity: 0.7; }
+/* On wide screens the menu board sits beside the title instead of pushing the menu down. */
+@media (min-width: 900px) {
+  .menu-board { position: absolute; right: 32px; top: 50%; transform: translateY(-50%); }
+}
+@media (max-width: 899px), (max-height: 700px) {
+  #screen-menu .controls { display: none; }
+}

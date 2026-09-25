@@ -67,6 +67,9 @@ function qualityDensity(): number {
 export class Game {
   state: GameState = 'menu';
   readonly stats: RunStats = { distance: 0, kills: 0, headshots: 0 };
+  /** Hooks for accounts and the leaderboard (see `src/online`). */
+  onRunStart: () => void = () => {};
+  onRunEnd: (stats: RunStats) => void = () => {};
 
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -199,6 +202,7 @@ export class Game {
     this.state = 'playing';
     this.hud.show(null);
     this.lastTime = performance.now();
+    this.onRunStart();
   }
 
   private setPaused(paused: boolean): void {
@@ -608,5 +612,6 @@ export class Game {
     this.perkOffer = null;
     this.player.gunVisible = false;
     this.hud.gameOver(this.stats);
+    this.onRunEnd({ ...this.stats });
   }
 }

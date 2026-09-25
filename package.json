@@ -5,19 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.api.json",
     "test": "vitest run",
     "assets:fetch": "node scripts/fetch-assets.mjs"
   },
   "dependencies": {
+    "@clerk/backend": "^3.20.1",
+    "@clerk/clerk-js": "^6.34.1",
+    "@neondatabase/serverless": "^1.1.0",
     "three": "^0.186.0"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.0",
     "@gltf-transform/extensions": "^4.5.0",
     "@gltf-transform/functions": "^4.5.0",
+    "@types/node": "^22.20.4",
     "@types/three": "^0.186.0",
     "sharp": "^0.35.4",
     "typescript": "^7.0.2",

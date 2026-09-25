@@ -71,10 +71,30 @@ src/
     ZombieBody.ts    zombie visuals: generated rigged GLB or primitive placeholder
     Effects.ts       pooled blood particles and bullet tracer
     Hud.ts / Input.ts / Sfx.ts
+  online/            Clerk sign-in (Google/GitHub), run submission and leaderboard UI
+api/                 Vercel functions: /api/leaderboard, /api/me, /api/runs/start, /api/runs/finish
+db/schema.sql        Neon Postgres schema
 public/assets/       generated models, textures, sprites, audio and video
 art/                 record of generated assets (prompts, Higgsfield job ids)
 scripts/             asset download/optimisation
 ```
+
+## Accounts and leaderboard
+
+Optional: without these variables the game plays signed out and the leaderboard stays hidden.
+
+| Variable | Where | What |
+| --- | --- | --- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Vercel (build) | Clerk publishable key, `pk_...` |
+| `CLERK_SECRET_KEY` | Vercel (functions) | Clerk secret key, `sk_...` |
+| `DATABASE_URL` | Vercel (functions) | Neon pooled connection string |
+| `CLERK_AUTHORIZED_PARTIES` | Vercel (functions), optional | Comma-separated origins allowed to send session tokens, e.g. `https://into-the-dead-oss.vercel.app` |
+
+Enable **Google** and **GitHub** under *Configure → SSO connections* in the Clerk dashboard, and apply `db/schema.sql` to the Neon database.
+
+Each signed-in run is opened with `POST /api/runs/start`, which stamps the start time on the server, and closed once with `POST /api/runs/finish`. The server verifies the Clerk session token and rejects stats that aren't possible in the elapsed time (see `api/_lib/validate.ts`). It's a sanity check, not full anti-cheat: the client still reports the stats.
+
+Locally, `vercel dev` serves the game and the API together (copy `.env.example` to `.env.local`); plain `npm run dev` runs the game without them.
 
 ## Adding generated assets
 
