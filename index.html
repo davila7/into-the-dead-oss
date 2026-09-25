@@ -50,6 +50,7 @@
       <h1>INTO THE DEAD</h1>
       <p class="tag">Keep running. Keep shooting. Don't get caught.</p>
       <button id="start-btn" disabled>Loading…</button>
+      <div id="account" hidden></div>
       <ul class="controls">
         <li><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> steer</li>
         <li><kbd>Click</kbd> / <kbd>Space</kbd> shoot at the crosshair</li>
@@ -70,6 +71,7 @@
         </svg>
         GitHub
       </a>
+      <section class="leaderboard menu-board" data-limit="10" hidden></section>
     </section>
 
     <section id="screen-paused" class="screen" hidden>
@@ -80,7 +82,9 @@
     <section id="screen-over" class="screen" hidden>
       <h1>YOU DIED</h1>
       <div id="over-stats"></div>
+      <div id="over-save" hidden></div>
       <button id="retry-btn">Run again</button>
+      <section class="leaderboard" data-limit="5" hidden></section>
     </section>
 
     <script type="module" src="/src/main.ts"></script>
